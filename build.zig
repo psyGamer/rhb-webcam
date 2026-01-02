@@ -57,7 +57,8 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
         }),
     });
     const cb_run = b.addRunArtifact(cb);
-    cb_run.addFileArg(dvui_dep.path("src/backends/index.html"));
+    cb_run.addFileArg(b.path("frontend/index.html"));
+    cb_run.addFileArg(b.path("frontend/video.js"));
     cb_run.addFileArg(dvui_dep.path("src/backends/web.js"));
     cb_run.addFileArg(wasm_exe.getEmittedBin());
     const output = cb_run.captureStdOut();
@@ -66,6 +67,9 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
 
     const compile_step = b.step("frontend", "Compile frontend");
     compile_step.dependOn(&b.addInstallFileWithDir(output, install_dir, "index.html").step);
+    const video_js = b.path("frontend/video.js");
+    compile_step.dependOn(&b.addInstallFileWithDir(video_js, install_dir, "video.js").step);
+    b.addNamedLazyPath("video.js", video_js);
     const web_js = dvui_dep.path("src/backends/web.js");
     compile_step.dependOn(&b.addInstallFileWithDir(web_js, install_dir, "web.js").step);
     b.addNamedLazyPath("web.js", web_js);

@@ -10,6 +10,10 @@ pub fn init(win: *dvui.Window) !void {
         .light => dvui.Theme.builtin.adwaita_light,
         .dark => dvui.Theme.builtin.adwaita_dark,
     });
+
+    const handle = @import("video.zig").video_init(69);
+    std.log.info("Handle: {}", .{handle});
+    @import("video.zig").video_deinit(handle);
 }
 
 // Run as app is shutting down before dvui.Window.deinit()
