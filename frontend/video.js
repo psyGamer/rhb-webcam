@@ -93,10 +93,6 @@ class VideoPlayer {
         this.video.remove();
     }
 
-    play() {
-        this.video.play();
-    }
-
     draw(dvui) {
         if (this.video.readyState >= this.video.HAVE_CURRENT_DATA) {
             dvui.gl.bindTexture(dvui.gl.TEXTURE_2D, this.texture);
@@ -165,11 +161,61 @@ class Video {
 
                 return 0;
             },
+            video_play: id => {
+                const player = this.activePlayers.get(id);
+                if (player) {
+                    player.video.play();
+                }
+            },
             video_pause: id => {
                 const player = this.activePlayers.get(id);
                 if (player) {
-                    player.pause();
+                    player.video.pause();
                 }
+            },
+            video_is_paused: id => {
+                const player = this.activePlayers.get(id);
+                if (player) {
+                    return player.video.paused;
+                }
+
+                return false;
+            },
+            video_set_position: (id, time) => {
+                const player = this.activePlayers.get(id);
+                if (player) {
+                    player.video.currentTime = time;
+                }
+            },
+            video_get_position: id => {
+                const player = this.activePlayers.get(id);
+                if (player) {
+                    return player.video.currentTime;
+                }
+
+                return 0;
+            },
+            video_get_duration: id => {
+                const player = this.activePlayers.get(id);
+                if (player) {
+                    return player.video.duration;
+                }
+
+                return 0;
+            },
+            video_set_speed: (id, speed) => {
+                const player = this.activePlayers.get(id);
+                if (player) {
+                    player.video.playbackRate = speed;
+                }
+            },
+            video_get_speed: id => {
+                const player = this.activePlayers.get(id);
+                if (player) {
+                    return player.video.playbackRate;
+                }
+
+                return 1;
             },
             video_cleanup_unused: () => {
                 this.activePlayers.entries().forEach(kv => {

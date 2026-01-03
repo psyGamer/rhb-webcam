@@ -1,8 +1,7 @@
 const std = @import("std");
 const dvui = @import("dvui");
 
-const videoPlayer = @import("VideoPlayerWidget.zig").videoPlayer;
-const video = @import("video.zig");
+const videoPlayer = @import("video_player.zig").videoPlayer;
 
 var gpa_instance = std.heap.GeneralPurposeAllocator(.{}){};
 const gpa = gpa_instance.allocator();
@@ -38,16 +37,18 @@ pub fn frame() !dvui.App.Result {
         }
     }
 
+    var scaler = dvui.scale(@src(), .{ .scale = &dvui.currentWindow().content_scale, .pinch_zoom = .global }, .{ .rect = .cast(dvui.windowRect()) });
+    scaler.deinit();
+
     if (dvui.button(@src(), "Meow :3", .{}, .{})) {
         visible = !visible;
     }
 
     if (visible) {
-        videoPlayer(@src(), .{ .source = "/example.mp4" }, .{});
+        videoPlayer(@src(), .{ .source = "/example.mp4" }, .{ .background = true, .style = .content, .min_size_content = .{ .w = 500, .h = 500 } });
     }
 
-    // Perform cleanup at end of frame
-    video.video_cleanup_unused();
+    @import("video_player.zig").endOfFrame();
 
     return .ok;
 }
