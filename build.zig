@@ -1,4 +1,5 @@
 const std = @import("std");
+const tokamak = @import("tokamak");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -7,10 +8,30 @@ pub fn build(b: *std.Build) void {
     const use_llvm = b.option(bool, "use-llvm", "Use LLVM for compiling") orelse (optimize != .Debug);
 
     const frontend_step = compileFrontend(b, optimize, use_llvm);
-    const backend_step = compileBackend(b, target, optimize, use_llvm);
+    const backend_step, const backend_exe = compileBackend(b, target, optimize, use_llvm);
     backend_step.dependOn(frontend_step);
 
     b.getInstallStep().dependOn(backend_step);
+
+    // 'run' step
+    const run_cmd = b.addRunArtifact(backend_exe);
+    run_cmd.setCwd(.{ .cwd_relative = b.getInstallPath(.prefix, "") });
+    run_cmd.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
+
+    const run_step = b.step("run", "Run the server");
+    run_step.dependOn(&run_cmd.step);
+
+    // 'check' step
+    const exe_check = b.addExecutable(.{
+        .name = "filisur-archive",
+        .root_module = backend_exe.root_module,
+    });
+
+    const check = b.step("check", "Check for compilation errors");
+    check.dependOn(&exe_check.step);
 }
 
 fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: bool) *std.Build.Step {
@@ -78,12 +99,16 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
 
     return compile_step;
 }
-fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, use_llvm: bool) *std.Build.Step {
+fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, use_llvm: bool) struct { *std.Build.Step, *std.Build.Step.Compile } {
+    const tokamak_dep = b.dependency("tokamak", .{ .target = target, .optimize = optimize });
+
     const module = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .root_source_file = b.path("backend/main.zig"),
-        .imports = &.{},
+        .imports = &.{
+            .{ .name = "tokamak", .module = tokamak_dep.module("tokamak") },
+        },
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
     });
 
@@ -94,10 +119,10 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     exe.use_llvm = use_llvm;
     exe.use_lld = use_llvm;
 
-    const install_exe = b.addInstallArtifact(exe, .{});
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .prefix } });
 
     const compile_step = b.step("backend", "Compile backend");
     compile_step.dependOn(&install_exe.step);
 
-    return compile_step;
+    return .{ compile_step, exe };
 }
