@@ -17,7 +17,7 @@
     <script>
         function initWasm(canvasId, wasmFile) {
             const dvui = new Dvui();
-            const video = new Video();
+            const video = new Video(dvui);
 
             WebAssembly.instantiateStreaming(fetch(wasmFile), { dvui: dvui.imports, video: video.imports })
                 .then((result) => {
