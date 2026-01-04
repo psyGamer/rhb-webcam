@@ -45,7 +45,7 @@ pub fn frame() !dvui.App.Result {
     }
 
     if (visible) {
-        videoPlayer(@src(), .{ .source = "/example.mp4" }, .{ .background = true, .style = .content, .min_size_content = .{ .w = 500, .h = 500 } });
+        videoPlayer(@src(), .{ .source = "/example.mp4" }, .{ .background = true, .style = .content, .min_size_content = .{ .w = 500, .h = 500 }, .corner_radius = .all(5) });
     }
 
     @import("video_player.zig").endOfFrame();
