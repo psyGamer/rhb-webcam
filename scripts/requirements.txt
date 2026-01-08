@@ -1,0 +1,8 @@
+# Common
+python-dotenv
+
+# download_webcam.py
+opencv-python
+
+# parse_locomotive_allocations.py
+pdfplumber
