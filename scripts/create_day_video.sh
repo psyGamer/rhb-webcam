@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -xe
 source ../.env
 
 if [ $# -eq 0 ]; then
@@ -18,7 +18,7 @@ ls $WEBCAM_SNIPPET_CACHE/$1 | while read -r file ; do
 done
 
 # Create mega-video for day
-ffmpeg -fflags +genpts -movflags +faststart -hwaccel vaapi -hwaccel_output_format vaapi \
+ffmpeg -fflags +genpts -hwaccel vaapi -hwaccel_output_format vaapi \
        -f concat -safe 0 -i archive_files.txt \
-       -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv -global_quality 40 -look_ahead 1 -preset veryfast -scenario videosurveillance $WEBCAM_VIDEO_ARCHIVE/$1/$1.mp4
+       -movflags +faststart -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv -global_quality 40 -look_ahead 1 -preset veryfast -scenario videosurveillance $WEBCAM_VIDEO_ARCHIVE/$1/$1.mp4
 
