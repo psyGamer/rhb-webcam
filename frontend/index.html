@@ -13,19 +13,22 @@
     <!-- TEMPLATE_HASH replaced by build.zig -->
     <script src="web.js?cache-buster=TEMPLATE_HASH_WITH_PADDING__ITS_64_BYTES_LONG_THE_SAME_AS_SHA256"></script>
     <script src="video.js?cache-buster=TEMPLATE_HASH_WITH_PADDING__ITS_64_BYTES_LONG_THE_SAME_AS_SHA256"></script>
+    <script src="meta.js?cache-buster=TEMPLATE_HASH_WITH_PADDING__ITS_64_BYTES_LONG_THE_SAME_AS_SHA256"></script>
 
     <script>
         function initWasm(canvasId, wasmFile) {
             const dvui = new Dvui();
             const video = new Video(dvui);
+            const meta = new Meta();
 
-            WebAssembly.instantiateStreaming(fetch(wasmFile), { dvui: dvui.imports, video: video.imports })
+            WebAssembly.instantiateStreaming(fetch(wasmFile), { dvui: dvui.imports, video: video.imports, meta: meta.imports })
                 .then((result) => {
+                    video.setInstance(result.instance);
+                    meta.setInstance(result.instance);
+
                     dvui.setInstance(result.instance);
                     dvui.setCanvas(canvasId);
                     dvui.run();
-
-                    video.setInstance(result.instance);
                 });
         }
     </script>

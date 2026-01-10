@@ -42,13 +42,20 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
 
     const dvui_dep = b.dependency("dvui", .{ .target = target, .optimize = optimize, .backend = .web });
 
-    const module = b.createModule(.{
+    const common_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .root_source_file = b.path("common/lib.zig"),
+        .link_libc = false,
+        .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
+    });
+    const frontend_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .root_source_file = b.path("frontend/main.zig"),
         .imports = &.{
+            .{ .name = "common", .module = common_module },
             .{ .name = "dvui", .module = dvui_dep.module("dvui_web") },
-            .{ .name = "web-backend", .module = dvui_dep.module("web") },
         },
         .link_libc = false,
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
@@ -56,7 +63,7 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
 
     const wasm_exe = b.addExecutable(.{
         .name = "web",
-        .root_module = module,
+        .root_module = frontend_module,
     });
     wasm_exe.entry = .disabled;
     // Self-hosted backend doesn't fully support WASM yet
@@ -89,6 +96,7 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
     compile_step.dependOn(&b.addInstallFileWithDir(output, install_dir, "index.html").step);
     compile_step.dependOn(&b.addInstallFileWithDir(dvui_dep.namedLazyPath("web.js"), install_dir, "web.js").step);
     compile_step.dependOn(&b.addInstallFileWithDir(b.path("frontend/video.js"), install_dir, "video.js").step);
+    compile_step.dependOn(&b.addInstallFileWithDir(b.path("frontend/meta.js"), install_dir, "meta.js").step);
 
     compile_step.dependOn(&install_wasm.step);
     compile_step.dependOn(&install_noto.step);
@@ -100,11 +108,18 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     const httpz_dep = tokamak_dep.builder.dependency("httpz", .{ .target = target, .optimize = optimize });
     const dotenv_dep = b.dependency("dotenv", .{ .target = target, .optimize = optimize });
 
-    const module = b.createModule(.{
+    const common_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .root_source_file = b.path("common/lib.zig"),
+        .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
+    });
+    const backend_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .root_source_file = b.path("backend/main.zig"),
         .imports = &.{
+            .{ .name = "common", .module = common_module },
             .{ .name = "tokamak", .module = tokamak_dep.module("tokamak") },
             .{ .name = "httpz", .module = httpz_dep.module("httpz") },
             .{ .name = "dotenv", .module = dotenv_dep.module("dotenv") },
@@ -114,7 +129,7 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
 
     const exe = b.addExecutable(.{
         .name = "filisur-archive",
-        .root_module = module,
+        .root_module = backend_module,
     });
     exe.use_llvm = use_llvm;
     exe.use_lld = use_llvm;

@@ -6,16 +6,30 @@ const tk = @import("tokamak");
 const dotenv = @import("dotenv");
 
 const assetDirectory = @import("static.zig").assetDirectory;
+const staticFile = @import("static.zig").staticFile;
 
 pub const std_options: std.Options = .{
     .logFn = @import("logging.zig").logFn,
     .fmt_max_depth = 10,
 };
 
+const dist_dir = "dist/";
+
 const routes: []const tk.Route = &.{
-    .get("/*", assetDirectory("dist")),
+    // Views (all point to index.html, since the router is in the frontend)
+    .get("/", staticFile(dist_dir ++ "index.html")),
+    .get("/categorize", staticFile(dist_dir ++ "index.html")),
+
+    // DVUI assets
+    .get("/web.wasm", staticFile(dist_dir ++ "web.wasm")),
+    .get("/web.js", staticFile(dist_dir ++ "web.js")),
+    .get("/video.js", staticFile(dist_dir ++ "video.js")),
+    .get("/meta.js", staticFile(dist_dir ++ "meta.js")),
+
+    // CDN
     .get("/video/:path", @import("video.zig").handler),
     .get("/thumbnail/:path", @import("thumbnail.zig").handler),
+    .group("/categorize-api", @import("categorize.zig").routes),
 };
 
 pub const Env = dotenv.Env(enum {
@@ -49,8 +63,10 @@ pub fn main() !void {
 
     try env.load(.{});
 
+    const server_routes = if (builtin.mode == .Debug) &.{tk.logger(.{}, routes)} else routes;
+
     var injector: tk.Injector = .init(&.{.ref(&env)}, null);
-    var server: tk.Server = try .init(allocator, routes, .{
+    var server: tk.Server = try .init(allocator, server_routes, .{
         .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
         .injector = &injector,
     });

@@ -59,9 +59,25 @@ pub fn assetDirectory(comptime path: []const u8) tk.Route {
         }
     };
 
-    return .{
-        .handler = &H.handleDir,
+    return .{ .handler = &H.handleDir };
+}
+pub fn staticFile(comptime path: []const u8) tk.Route {
+    const H = struct {
+        pub fn handleFile(ctx: *tk.Context) anyerror!void {
+            const file = std.fs.cwd().openFile(path, .{}) catch |e| return switch (e) {
+                error.FileNotFound => {},
+                else => e,
+            };
+            defer file.close();
+
+            // Static files are expected to never change
+            ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+
+            try sendFile(ctx, file, comptime content_types.get(std.fs.path.extension(path)) orelse "application/octet-stream");
+        }
     };
+
+    return .{ .handler = &H.handleFile };
 }
 
 /// Send the specified target file to the client
