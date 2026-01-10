@@ -14,6 +14,7 @@ pub const std_options: std.Options = .{
 
 const routes: []const tk.Route = &.{
     .get("/*", assetDirectory("dist")),
+    .get("/video/:path", @import("video.zig").handler),
     .get("/thumbnail/:path", @import("thumbnail.zig").handler),
 };
 

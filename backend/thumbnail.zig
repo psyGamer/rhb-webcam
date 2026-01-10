@@ -3,19 +3,22 @@ const tk = @import("tokamak");
 
 const Env = @import("main.zig").Env;
 const Timestamp = @import("Timestamp.zig");
-const streamFile = @import("static.zig").streamFile;
+const sendFile = @import("static.zig").sendFile;
 
 pub fn handler(arena: std.mem.Allocator, ctx: *tk.Context, env: *Env, path: []const u8) anyerror!void {
-    if (!std.mem.endsWith(u8, path, ".png") or !Timestamp.isValid(path[0..(path.len - ".png".len)])) return;
+    const extension = ".png";
+    if (!std.mem.endsWith(u8, path, extension) or !Timestamp.isValid(path[0..(path.len - extension.len)])) return;
 
     const day = path[0.."YYYY-MM-DD".len];
 
     const thumbnailPath = try std.fs.path.join(arena, &.{ env.key(.THUMBNAIL_CACHE), day, path });
     if (std.fs.cwd().openFile(thumbnailPath, .{})) |file| {
+        defer file.close();
+
         // All videos are static and therefore all thumbnails too
         ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
 
-        try streamFile(ctx, file, "image/png");
+        try sendFile(ctx, file, "image/png");
     } else |_| {
         const videoName = try arena.dupe(u8, path);
         const videoExtension: *[3]u8 = videoName[(videoName.len - 3)..][0..3];
@@ -69,10 +72,11 @@ pub fn handler(arena: std.mem.Allocator, ctx: *tk.Context, env: *Env, path: []co
             ctx.responded = true;
             return;
         };
+        defer file.close();
 
         // All videos are static and therefore all thumbnails too
         ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
 
-        try streamFile(ctx, file, "image/png");
+        try sendFile(ctx, file, "image/png");
     }
 }

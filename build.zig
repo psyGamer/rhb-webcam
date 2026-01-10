@@ -97,6 +97,7 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
 }
 fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, use_llvm: bool) struct { *std.Build.Step, *std.Build.Step.Compile } {
     const tokamak_dep = b.dependency("tokamak", .{ .target = target, .optimize = optimize });
+    const httpz_dep = tokamak_dep.builder.dependency("httpz", .{ .target = target, .optimize = optimize });
     const dotenv_dep = b.dependency("dotenv", .{ .target = target, .optimize = optimize });
 
     const module = b.createModule(.{
@@ -105,6 +106,7 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
         .root_source_file = b.path("backend/main.zig"),
         .imports = &.{
             .{ .name = "tokamak", .module = tokamak_dep.module("tokamak") },
+            .{ .name = "httpz", .module = httpz_dep.module("httpz") },
             .{ .name = "dotenv", .module = dotenv_dep.module("dotenv") },
         },
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
