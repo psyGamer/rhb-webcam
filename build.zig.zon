@@ -11,6 +11,10 @@
             .url = "git+https://github.com/cztomsik/tokamak?ref=main#a25b84dab9a0557f9496263529b08b574ac6b0e6",
             .hash = "tokamak-2.0.0-FbnSecLCBgDbEBjqWvwY69Wc7tenKYDbGdNpH2JEByn-",
         },
+        .dotenv = .{
+            .url = "git+https://github.com/xcaeser/zig-dotenv.git?ref=v0.8.0#dfda7f7996594ca260290693fd0b415611e8cbc8",
+            .hash = "dotenv-0.8.0-lRzK2Yl1AAARwki_I2HYib8qWbb8mjUfn8GRhfdCQnpY",
+        },
     },
     .paths = .{
         "build.zig",

@@ -65,9 +65,7 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
     // exe.use_lld = use_llvm;
 
     const install_dir: std.Build.InstallDir = .{ .custom = "dist" };
-    const install_wasm = b.addInstallArtifact(wasm_exe, .{
-        .dest_dir = .{ .override = install_dir },
-    });
+    const install_wasm = b.addInstallArtifact(wasm_exe, .{ .dest_dir = .{ .override = install_dir } });
 
     // Hash files to invalidate browser cache
     const cb = b.addExecutable(.{
@@ -87,13 +85,11 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
     const install_noto = b.addInstallFileWithDir(dvui_dep.path("src/fonts/NotoSansKR-Regular.ttf"), install_dir, "NotoSansKR-Regular.ttf");
 
     const compile_step = b.step("frontend", "Compile frontend");
+
     compile_step.dependOn(&b.addInstallFileWithDir(output, install_dir, "index.html").step);
-    const video_js = b.path("frontend/video.js");
-    compile_step.dependOn(&b.addInstallFileWithDir(video_js, install_dir, "video.js").step);
-    b.addNamedLazyPath("video.js", video_js);
-    const web_js = dvui_dep.path("src/backends/web.js");
-    compile_step.dependOn(&b.addInstallFileWithDir(web_js, install_dir, "web.js").step);
-    b.addNamedLazyPath("web.js", web_js);
+    compile_step.dependOn(&b.addInstallFileWithDir(dvui_dep.namedLazyPath("web.js"), install_dir, "web.js").step);
+    compile_step.dependOn(&b.addInstallFileWithDir(b.path("frontend/video.js"), install_dir, "video.js").step);
+
     compile_step.dependOn(&install_wasm.step);
     compile_step.dependOn(&install_noto.step);
 
@@ -101,6 +97,7 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
 }
 fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, use_llvm: bool) struct { *std.Build.Step, *std.Build.Step.Compile } {
     const tokamak_dep = b.dependency("tokamak", .{ .target = target, .optimize = optimize });
+    const dotenv_dep = b.dependency("dotenv", .{ .target = target, .optimize = optimize });
 
     const module = b.createModule(.{
         .target = target,
@@ -108,6 +105,7 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
         .root_source_file = b.path("backend/main.zig"),
         .imports = &.{
             .{ .name = "tokamak", .module = tokamak_dep.module("tokamak") },
+            .{ .name = "dotenv", .module = dotenv_dep.module("dotenv") },
         },
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
     });
@@ -119,10 +117,13 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     exe.use_llvm = use_llvm;
     exe.use_lld = use_llvm;
 
-    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .prefix } });
+    const install_dir: std.Build.InstallDir = .prefix;
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = install_dir } });
 
     const compile_step = b.step("backend", "Compile backend");
     compile_step.dependOn(&install_exe.step);
+
+    compile_step.dependOn(&b.addInstallFileWithDir(b.path(".env"), install_dir, ".env").step);
 
     return .{ compile_step, exe };
 }
