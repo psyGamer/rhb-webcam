@@ -33,20 +33,21 @@ fn freeUserData(comptime T: type, allocator: std.mem.Allocator, context: *T) voi
 // `userdata` must have been created with `allocUserData`
 extern "meta" fn url_fetch(ptr: [*]const u8, len: usize, userdata: *anyopaque) void;
 export fn url_callback(userdata: *anyopaque, status: u16, data: [*]const u8, len: usize) void {
-    std.log.warn("CALLBACK: {*} {} {*} {}", .{ userdata, status, data, len });
     const callback: **const FetchCallback = @ptrFromInt(@intFromPtr(userdata) - @sizeOf(*const FetchCallback));
-
     callback.*(userdata, @enumFromInt(status), data[0..len]);
-    std.log.warn("DONE CALLBACK: {*} {} {*} {}", .{ userdata, status, data, len });
 }
 
+/// Perform a raw web-request to the target URL
 pub fn fetch(url: []const u8, callback: FetchCallback) void {
     url_fetch(url.ptr, url.len, allocUserData(void, undefined, callback));
 }
 
-pub const JsonError = std.json.ParseError(std.json.Scanner);
-pub fn fetchJsonObject(comptime T: type, url: []const u8, comptime callback: fn (value: JsonError!T, window: *dvui.Window) void) !void {
-    // _ = url; // autofix
+pub fn JsonResult(comptime T: type) type {
+    return std.json.ParseError(std.json.Scanner)!std.json.Parsed(T);
+}
+
+/// Perform a web-request to the target URL and try to parse the response as JSON data
+pub fn fetchJsonObject(comptime T: type, url: []const u8, comptime callback: fn (value: JsonResult(T), window: *dvui.Window) void) !void {
     const Context = struct {
         window: *dvui.Window,
 
@@ -54,7 +55,7 @@ pub fn fetchJsonObject(comptime T: type, url: []const u8, comptime callback: fn 
             defer freeUserData(@This(), ctx.window.gpa, ctx);
 
             if (status != .ok) return;
-            const value = std.json.parseFromSliceLeaky(T, ctx.window.arena(), data, .{});
+            const value = std.json.parseFromSlice(T, ctx.window.gpa, data, .{ .allocate = .alloc_always });
             callback(value, ctx.window);
         }
     };
@@ -63,21 +64,4 @@ pub fn fetchJsonObject(comptime T: type, url: []const u8, comptime callback: fn 
     ctx.* = .{ .window = dvui.currentWindow() };
 
     url_fetch(url.ptr, url.len, ctx);
-
-    // }, allocator: Allocator, callback: fn (T, Status, []const u8) void)
-    // const JsonUserData = allo(struct {
-    // });
-    // _ = JsonUserData; // autofix
-
-    // const userdata: extern struct {
-    //     callback: *anyopaque = @constCast(&cb),
-    //     allocator: *const std.mem.Allocator = allocator,
-
-    //     fn cb(status: std.http.Status, data: []const u8) void {
-    //         callback(undefined);
-    //         _ = status; // autofix
-    //         _ = data; // autofix
-    //     }
-    // } = .{};
-    // _ = userdata; // autofix
 }

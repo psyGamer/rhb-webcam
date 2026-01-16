@@ -3,7 +3,7 @@ const dvui = @import("dvui");
 
 const videoPlayer = @import("video_player.zig").videoPlayer;
 
-const Categorize = @import("view/Categorize.zig");
+const categorize_view = @import("view/categorize.zig");
 
 pub extern "meta" fn window_get_path() [*:0]const u8;
 pub extern "meta" fn window_get_search() [*:0]const u8;
@@ -12,9 +12,9 @@ pub extern "meta" fn window_set_url(ptr: [*]const u8, len: usize) void;
 var gpa_instance = std.heap.GeneralPurposeAllocator(.{}){};
 const gpa = gpa_instance.allocator();
 
-var current_view: union(enum) {
-    root: void,
-    categorize: Categorize,
+var current_view: enum {
+    root,
+    categorize,
 } = .root;
 
 pub fn init(win: *dvui.Window) !void {
@@ -28,8 +28,9 @@ pub fn init(win: *dvui.Window) !void {
     const search = std.mem.span(window_get_search());
     const query = if (std.mem.indexOfScalar(u8, search, '?')) |idx| search[(idx + 1)..] else search;
 
-    if (std.mem.eql(u8, path, Categorize.route)) {
-        current_view = .{ .categorize = .init(query) };
+    if (std.mem.eql(u8, path, categorize_view.route)) {
+        current_view = .categorize;
+        categorize_view.init(query);
     }
 }
 
@@ -59,7 +60,7 @@ pub fn frame() !dvui.App.Result {
 
     switch (current_view) {
         .root => {}, // TODO,
-        .categorize => |*view| view.frame(),
+        .categorize => categorize_view.frame(),
     }
 
     @import("video_player.zig").endOfFrame();
