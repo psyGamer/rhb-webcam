@@ -3,13 +3,13 @@ const tk = @import("tokamak");
 
 const Env = @import("main.zig").Env;
 const Timestamp = @import("common").Timestamp;
+const api = @import("common").api;
 
 pub const routes: []const tk.Route = &.{
     .get("/file-list?", handleFileList),
 };
 
-const FileEntry = struct { path: []const u8, categorized: bool };
-fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.time.Date, includeCategorized: bool = false }) ![]const FileEntry {
+fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.time.Date, includeCategorized: bool = false }) !api.CategorizeFileList {
     _ = query; // autofix
     _ = env; // autofix
     const videos: []const []const u8 = &.{
@@ -39,7 +39,7 @@ fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.t
         "2026-01-10_13-42-42.mp4",
     };
 
-    const entries = try arena.alloc(FileEntry, videos.len);
+    const entries = try arena.alloc(api.CategorizeFileEntry, videos.len);
     for (videos, entries) |video, *entry| {
         entry.* = .{ .path = video, .categorized = false };
     }

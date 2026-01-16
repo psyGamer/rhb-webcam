@@ -60,6 +60,9 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
         .link_libc = false,
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
     });
+    frontend_module.export_symbol_names = &.{
+        "url_callback",
+    };
 
     const wasm_exe = b.addExecutable(.{
         .name = "web",

@@ -29,6 +29,8 @@ const routes: []const tk.Route = &.{
     // CDN
     .get("/video/:path", @import("video.zig").handler),
     .get("/thumbnail/:path", @import("thumbnail.zig").handler),
+
+    // API
     .group("/categorize-api", @import("categorize.zig").routes),
 };
 

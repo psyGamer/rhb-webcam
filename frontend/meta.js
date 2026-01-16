@@ -25,14 +25,28 @@ class Meta {
                 return ptr;
             },
             window_set_url: (ptr, len) => {
-                const path = utf8decoder.decode(
-                    new Uint8Array(this.instance.exports.memory.buffer, ptr, len)
-                );
+                const path = utf8decoder.decode(new Uint8Array(this.instance.exports.memory.buffer, ptr, len));
 
                 window.history.pushState({}, "", path);
             },
 
             get_timestamp: () => BigInt(Math.floor(Date.now() / 1000)),
+
+            url_fetch: (ptr, len, userdata) => {
+                const url = utf8decoder.decode(new Uint8Array(this.instance.exports.memory.buffer, ptr, len));
+                
+                fetch(url).then(async (response) => {
+                    const blob = await response.blob();
+                    const bytes = new Uint8Array(await blob.arrayBuffer());
+
+                    const ptr = this.instance.exports.arena_u8(bytes.length);
+
+                    var dest = new Uint8Array(this.instance.exports.memory.buffer, ptr, bytes.length);
+                    dest.set(bytes);
+
+                    this.instance.exports.url_callback(userdata, response.status, ptr, bytes.length);
+                });
+            },
         }
     }
 
