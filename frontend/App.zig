@@ -32,6 +32,9 @@ pub fn init(win: *dvui.Window) !void {
         current_view = .categorize;
         categorize_view.init(query);
     }
+
+    // Inrease default since it's kinda slow
+    dvui.scroll_speed = 50.0;
 }
 
 // Run as app is shutting down before dvui.Window.deinit()
@@ -64,6 +67,7 @@ pub fn frame() !dvui.App.Result {
     }
 
     @import("video_player.zig").endOfFrame();
+    @import("image_viewer.zig").endOfFrame();
 
     return .ok;
 }

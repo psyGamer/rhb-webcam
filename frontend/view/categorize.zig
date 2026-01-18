@@ -4,6 +4,8 @@ const dvui = @import("dvui");
 const time = @import("../time.zig");
 const fetch = @import("../fetch.zig");
 
+const videoSelector = @import("../video_selector.zig").videoSelector;
+
 const Timestamp = @import("common").Timestamp;
 const api = @import("common").api;
 
@@ -11,6 +13,7 @@ pub const route = "/categorize";
 
 var selected_video: ?[Timestamp.fmt.len]u8 = undefined;
 var selected_day: time.Date = undefined;
+var selected_index: usize = 0;
 
 var current_videos: ?std.json.Parsed(api.CategorizeFileList) = undefined;
 
@@ -45,6 +48,23 @@ pub fn init(query: []const u8) void {
                 current_videos = null;
                 return;
             };
+            const videos = current_videos.?.value;
+
+            // Find currently selected
+            if (selected_video) |selected| {
+                for (videos, 0..) |video, idx| {
+                    if (std.mem.eql(u8, &video.path, &selected)) {
+                        selected_index = idx;
+                        break;
+                    }
+                } else {
+                    selected_video = if (videos.len > 0) videos[0].path else null;
+                    selected_index = 0;
+                }
+            } else {
+                selected_video = if (videos.len > 0) videos[0].path else null;
+                selected_index = 0;
+            }
 
             dvui.refresh(window, @src(), null);
         }
@@ -58,8 +78,8 @@ pub fn frame() void {
     dvui.label(@src(), "Video: '{s}' // Day: {f}", .{ if (selected_video) |video| &video else "", selected_day }, .{});
 
     if (current_videos) |videos| {
-        for (videos.value, 0..) |video, idx| {
-            dvui.labelNoFmt(@src(), video.path, .{}, .{ .id_extra = idx });
+        if (videoSelector(@src(), .{ .videos = videos.value, .selected = &selected_index }, .{ .background = false })) {
+            selected_video = videos.value[selected_index].path;
         }
     } else {
         dvui.spinner(@src(), .{});

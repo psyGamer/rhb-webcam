@@ -32,7 +32,6 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
     defer box.deinit();
 
     const texture = dvui.dataGetPtrDefault(null, box.data().id, "texture", dvui.Texture, .{ .ptr = undefined, .width = 0, .height = 0 });
-    // const control_fade = dvui.dataGetPtrDefault(null, box.data().id, "control_fade", f32, 1.0);
 
     var has_motion = false;
     for (dvui.events()) |*e| {

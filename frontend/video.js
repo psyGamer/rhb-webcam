@@ -83,7 +83,7 @@ class VideoPlayer {
 
             dvui.requestRender();
         })
-        document.body.appendChild(this.video)
+        document.body.appendChild(this.video);
     }
 
     deinit(dvui) {
@@ -118,6 +118,89 @@ class VideoPlayer {
         }
     }
 }
+class ImageViewer {
+    /** @type {WebAssembly.Instance} */
+    instance;
+
+    /** @type {WebGLTexture} */
+    texture;
+    /** @type {number} */
+    textureId;
+
+    /** Tracks if the viewer was used this frame, for automatic cleanup */
+    used = true;
+
+    /** @type {string} */
+    src;
+    /** @type {HTMLImageElement} */
+    image;
+
+    constructor(instance, dvui, src) {
+        this.instance = instance;
+
+        this.src = src;
+        this.image = document.createElement('img');
+        this.image.src = src;
+        this.image.style.display = 'none';
+        this.image.addEventListener("load", async () => {
+            // Allocate texture
+            this.textureId = dvui.newTextureId;
+            dvui.newTextureId += 1;
+
+            this.texture = dvui.gl.createTexture();
+            dvui.textures.set(this.textureId, [this.texture, this.image.naturalWidth, this.image.naturalHeight]);
+
+            dvui.gl.bindTexture(dvui.gl.TEXTURE_2D, this.texture);
+
+            // Upload data
+            dvui.gl.texImage2D(
+                dvui.gl.TEXTURE_2D,
+                0,
+                dvui.gl.RGBA,
+                this.image.naturalWidth,
+                this.image.naturalHeight,
+                0,
+                dvui.gl.RGBA,
+                dvui.gl.UNSIGNED_BYTE,
+                this.image,
+            );
+        
+            dvui.gl.texParameteri(
+                dvui.gl.TEXTURE_2D,
+                dvui.gl.TEXTURE_MIN_FILTER,
+                dvui.gl.LINEAR,
+            );
+            dvui.gl.texParameteri(
+                dvui.gl.TEXTURE_2D,
+                dvui.gl.TEXTURE_MAG_FILTER,
+                dvui.gl.LINEAR,
+            );
+
+            dvui.gl.texParameteri(
+                dvui.gl.TEXTURE_2D,
+                dvui.gl.TEXTURE_WRAP_S,
+                dvui.gl.CLAMP_TO_EDGE,
+            );
+            dvui.gl.texParameteri(
+                dvui.gl.TEXTURE_2D,
+                dvui.gl.TEXTURE_WRAP_T,
+                dvui.gl.CLAMP_TO_EDGE,
+            );
+
+            dvui.gl.bindTexture(dvui.gl.TEXTURE_2D, null);
+
+            dvui.requestRender();
+        })
+        document.body.appendChild(this.image)
+    }
+
+    deinit(dvui) {
+        dvui.textures.delete(this.textureId);
+        dvui.gl.deleteTexture(this.texture);
+
+        this.video.remove();
+    }
+}
 
 class Video {
     /** @type {Dvui} */
@@ -127,6 +210,8 @@ class Video {
 
     /** @type {Map<Id, VideoPlayer>} */
     activePlayers = new Map();
+    /** @type {Map<Id, ImageViewer>} */
+    activeViewers = new Map();
     
     constructor(dvui) {
         this.dvui = dvui;
@@ -231,6 +316,57 @@ class Video {
                     player.used = false;
                 })
             },
+
+            image_init: (id, ptr, len) => {
+                const src = utf8decoder.decode(new Uint8Array(this.instance.exports.memory.buffer, ptr, len));
+
+                let viewer = this.activeViewers.get(id);
+                if (viewer) {
+                    viewer.used = true;
+                    if (viewer.src != src) {
+                        console.log(`Image changed from '${viewer.image.src}' to '${src}'`)
+                        viewer.src = src;
+                        viewer.image.src = src;
+                    }
+                    return viewer.textureId;
+                }
+
+                viewer = new ImageViewer(this.instance, this.dvui, src);
+                this.activeViewers.set(id, viewer);
+
+                return viewer.textureId;
+            },
+            image_width: id => {
+                const viewer = this.activeViewers.get(id);
+                if (viewer) {
+                    return this.dvui.textures.get(viewer.textureId)[1];
+                }
+
+                return 0;
+            },
+            image_height: id => {
+                const viewer = this.activeViewers.get(id);
+                if (viewer) {
+                    return this.dvui.textures.get(viewer.textureId)[2];
+                }
+
+                return 0;
+            },
+            image_cleanup_unused: () => {
+                this.activeViewers.entries().forEach(kv => {
+                    const [id, viewer] = kv;
+
+                    // Remove unused
+                    if (!viewer.used) {
+                        console.info(`image_deinit`, id);
+                        viewer.deinit(this.dvui);
+                        this.activeViewers.delete(id);
+                    }
+                    // Reset flag
+                    viewer.used = false;
+                })
+            },
+
         }
     }
 
