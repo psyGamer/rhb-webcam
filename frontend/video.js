@@ -12,6 +12,10 @@ class VideoPlayer {
     /** Tracks if the player was used this frame, for automatic cleanup */
     used = true;
 
+    /** @type {string} */
+    src;
+    /** @type {boolean} */
+    loading;
     /** @type {HTMLVideoElement} */
     video;
     /** @type {MediaStream} */
@@ -24,11 +28,13 @@ class VideoPlayer {
     /** @type {ReadableStream} */
     reader;
 
-    constructor(instance, dvui) {
+    constructor(instance, dvui, src) {
         this.instance = instance;
 
+        this.src = src;
+        this.loading = true;
         this.video = document.createElement('video');
-        this.video.src = "/example.mp4";
+        this.video.src = src;
         this.video.muted = true;
         this.video.playsInline = true;
         this.video.style.display = 'none';
@@ -40,7 +46,6 @@ class VideoPlayer {
 
             this.texture = dvui.gl.createTexture();
             dvui.textures.set(this.textureId, [this.texture, this.video.videoWidth, this.video.videoHeight]);
-            console.log(this.video.videoWidth, this.video.videoHeight)
 
             dvui.gl.bindTexture(dvui.gl.TEXTURE_2D, this.texture);
 
@@ -81,6 +86,7 @@ class VideoPlayer {
 
             dvui.gl.bindTexture(dvui.gl.TEXTURE_2D, null);
 
+            this.loading = false;
             dvui.requestRender();
         })
         document.body.appendChild(this.video);
@@ -132,6 +138,8 @@ class ImageViewer {
 
     /** @type {string} */
     src;
+    /** @type {boolean} */
+    loading;
     /** @type {HTMLImageElement} */
     image;
 
@@ -139,6 +147,7 @@ class ImageViewer {
         this.instance = instance;
 
         this.src = src;
+        this.loading = true;
         this.image = document.createElement('img');
         this.image.src = src;
         this.image.style.display = 'none';
@@ -189,6 +198,7 @@ class ImageViewer {
 
             dvui.gl.bindTexture(dvui.gl.TEXTURE_2D, null);
 
+            this.loading = false;
             dvui.requestRender();
         })
         document.body.appendChild(this.image)
@@ -216,16 +226,22 @@ class Video {
     constructor(dvui) {
         this.dvui = dvui;
         this.imports = {
-            video_init: id => {
+            video_init: (id, ptr, len) => {
+                const src = utf8decoder.decode(new Uint8Array(this.instance.exports.memory.buffer, ptr, len));
+
                 let player = this.activePlayers.get(id);
                 if (player) {
                     player.used = true;
+                    if (player.src != src) {
+                        player.src = src;
+                        player.loading = true;
+                        player.video.src = src;
+                    }
                     player.draw(this.dvui);
-                    return player.textureId;
+                    return player.loading ? 0 : player.textureId;
                 }
 
-                console.info(`video_init`, id);
-                player = new VideoPlayer(this.instance, this.dvui);
+                player = new VideoPlayer(this.instance, this.dvui, src);
                 this.activePlayers.set(id, player);
 
                 return player.textureId;
@@ -308,7 +324,6 @@ class Video {
 
                     // Remove unused
                     if (!player.used) {
-                        console.info(`video_deinit`, id);
                         player.deinit(this.dvui);
                         this.activePlayers.delete(id);
                     }
@@ -324,11 +339,11 @@ class Video {
                 if (viewer) {
                     viewer.used = true;
                     if (viewer.src != src) {
-                        console.log(`Image changed from '${viewer.image.src}' to '${src}'`)
                         viewer.src = src;
+                        viewer.loading = true;
                         viewer.image.src = src;
                     }
-                    return viewer.textureId;
+                    return viewer.loading ? 0 : viewer.textureId;
                 }
 
                 viewer = new ImageViewer(this.instance, this.dvui, src);
@@ -358,7 +373,6 @@ class Video {
 
                     // Remove unused
                     if (!viewer.used) {
-                        console.info(`image_deinit`, id);
                         viewer.deinit(this.dvui);
                         this.activeViewers.delete(id);
                     }

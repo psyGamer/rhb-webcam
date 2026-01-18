@@ -5,6 +5,7 @@ const time = @import("../time.zig");
 const fetch = @import("../fetch.zig");
 
 const videoSelector = @import("video_selector.zig").videoSelector;
+const videoPlayer = @import("../video_player.zig").videoPlayer;
 
 const Timestamp = @import("common").Timestamp;
 const api = @import("common").api;
@@ -16,6 +17,8 @@ var selected_day: time.Date = undefined;
 var selected_index: usize = 0;
 
 var current_videos: ?std.json.Parsed(api.CategorizeFileList) = undefined;
+
+var playback_config: @import("../video_player.zig").InitOptions.PlaybackConfig = .{ .playing = true, .update = true };
 
 pub fn init(query: []const u8) void {
     // Reset state
@@ -75,13 +78,43 @@ pub fn init(query: []const u8) void {
     };
 }
 pub fn frame() void {
-    dvui.label(@src(), "Video: '{s}' // Day: {f}", .{ if (selected_video) |video| &video else "", selected_day }, .{});
+    const videos = current_videos orelse {
+        dvui.spinner(@src(), .{ .gravity_x = 0.5, .gravity_y = 0.5 });
+        return;
+    };
+    if (selected_video == null or videos.value.len == 0) {
+        dvui.labelNoFmt(@src(), "No videos available", .{}, .{ .gravity_x = 0.5, .gravity_y = 0.5 });
+        return;
+    }
 
-    if (current_videos) |videos| {
+    const box = dvui.box(@src(), .{ .dir = .horizontal }, .{ .expand = .both });
+    defer box.deinit();
+
+    const lifo = dvui.currentWindow().lifo();
+
+    {
+        const selector_box = dvui.box(@src(), .{}, .{ .expand = .vertical });
+        defer selector_box.deinit();
+
+        dvui.label(@src(), "Video: '{s}' // Day: {f}", .{ if (selected_video) |video| &video else "", selected_day }, .{});
         if (videoSelector(@src(), .{ .videos = videos.value, .selected = &selected_index }, .{ .background = false })) {
             selected_video = videos.value[selected_index].path;
+            playback_config.playing = true; // Enable auto-play
+            playback_config.update = true; // Enable auto-play
         }
-    } else {
-        dvui.spinner(@src(), .{});
+    }
+    {
+        const player_box = dvui.box(@src(), .{}, .{ .expand = .vertical });
+        defer player_box.deinit();
+
+        const selected = selected_video orelse videos.value[0].path;
+        const video_url = std.fmt.allocPrint(lifo, "video/{s}", .{selected}) catch "";
+        defer lifo.free(video_url);
+
+        videoPlayer(@src(), .{
+            .source = video_url,
+            .control_bar = .show,
+            .playback = &playback_config,
+        }, .{});
     }
 }

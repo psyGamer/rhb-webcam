@@ -1,7 +1,7 @@
 const std = @import("std");
 const dvui = @import("dvui");
 
-pub extern "video" fn video_init(id: u64) u32;
+pub extern "video" fn video_init(id: u64, ptr: [*]const u8, len: usize) u32;
 pub extern "video" fn video_width(id: u64) u32;
 pub extern "video" fn video_height(id: u64) u32;
 pub extern "video" fn video_play(id: u64) void;
@@ -14,7 +14,18 @@ pub extern "video" fn video_set_speed(id: u64, speed: f32) void;
 pub extern "video" fn video_get_speed(id: u64) f32;
 pub extern "video" fn video_cleanup_unused() void;
 
-const InitOptions = struct {
+pub const InitOptions = struct {
+    pub const PlaybackConfig = struct {
+        /// Wheater the video is currently playing
+        playing: bool = false,
+        /// Current playback rate of the video
+        speed: f32 = 1.0,
+
+        /// Indicates that the current values should be set this frame
+        /// Will be reset to false once applied
+        update: bool = false,
+    };
+
     source: []const u8,
 
     control_bar: union(enum) {
@@ -26,6 +37,9 @@ const InitOptions = struct {
         /// Alawys display the media control bar
         show: void,
     } = .{ .auto_hide = 3 * std.time.us_per_s },
+
+    /// Reports currently playback state and applies inital config on load
+    playback: ?*PlaybackConfig = null,
 };
 pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts: dvui.Options) void {
     const box = dvui.box(src, .{}, opts);
@@ -74,7 +88,8 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
     };
 
     const player_id = box.data().id.asU64();
-    const texture_id = video_init(player_id);
+    const texture_id = video_init(player_id, init_opts.source.ptr, init_opts.source.len);
+    std.log.info("Texture {d} for '{s}'", .{ texture_id, init_opts.source });
 
     if (texture_id == 0) {
         dvui.spinner(@src(), .{ .gravity_x = 0.5, .gravity_y = 0.5 });
@@ -93,6 +108,20 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
             const fade_out_init_anim: dvui.Animation = .{ .end_time = @intCast(init_opts.control_bar.auto_hide + fade_speed), .start_val = @as(f32, @floatFromInt((init_opts.control_bar.auto_hide + fade_speed))) / std.time.us_per_s, .end_val = 0.0 };
             dvui.animation(box.data().id, "control_fade_out", fade_out_init_anim);
         }
+    }
+
+    if (init_opts.playback) |config| {
+        if (config.update) {
+            if (config.playing) {
+                video_play(player_id);
+                std.log.info("PLAY", .{});
+            }
+            if (config.speed != 1.0) {
+                video_set_speed(player_id, config.speed);
+                std.log.info("SPEED {}", .{config.speed});
+            }
+        }
+        config.update = false;
     }
 
     const image = dvui.image(@src(), .{ .source = .{ .texture = texture.* }, .shrink = .both }, .{ .corner_radius = opts.corner_radius });
@@ -118,9 +147,15 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
         if (dvui.buttonIcon(@src(), "Play", dvui.entypo.controller_play, .{}, .{}, button_opts)) {
             video_play(player_id);
         }
+        if (init_opts.playback) |config| {
+            config.playing = false;
+        }
     } else {
         if (dvui.buttonIcon(@src(), "Pause", dvui.entypo.controller_pause, .{}, .{}, button_opts)) {
             video_pause(player_id);
+        }
+        if (init_opts.playback) |config| {
+            config.playing = true;
         }
     }
 
@@ -138,12 +173,21 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
     const duration = video_get_duration(player_id);
 
     var fraction = position / duration;
-    if (dvui.slider(@src(), .{ .fraction = &fraction }, .{ .expand = .horizontal, .gravity_y = 0.5, .padding = .all(0), .margin = .{ .w = bar_margin } })) {
-        video_set_position(player_id, fraction * duration);
+    if (!std.math.isNormal(fraction)) {
+        // Disallow changing
+        fraction = 0;
+        _ = dvui.slider(@src(), .{ .fraction = &fraction }, .{ .expand = .horizontal, .gravity_y = 0.5, .padding = .all(0), .margin = .{ .w = bar_margin * 2 } });
+    } else {
+        fraction = std.math.clamp(fraction, 0, 1);
+        if (dvui.slider(@src(), .{ .fraction = &fraction }, .{ .expand = .horizontal, .gravity_y = 0.5, .padding = .all(0), .margin = .{ .w = bar_margin * 2 } })) {
+            video_set_position(player_id, fraction * duration);
+        }
     }
 
     const label_opts: dvui.Options = .{ .font = font, .gravity_y = 0.5, .padding = .all(0) };
-    if (duration < std.time.s_per_hour)
+    if (!std.math.isNormal(duration))
+        dvui.labelNoFmt(@src(), "--:-- / --:--", .{}, label_opts)
+    else if (duration < std.time.s_per_hour)
         dvui.label(@src(), "{:.0}:{:0>2.0} / {:.0}:{:0>2.0}", .{ @divFloor(position, std.time.s_per_min), @mod(position, std.time.s_per_min), @divFloor(duration, std.time.s_per_min), @mod(duration, std.time.s_per_min) }, label_opts)
     else
         dvui.label(@src(), "{:.0}:{:0>2.0}:{:0>2.0} / {:.0}:{:0>2.0}:{:0>2.0}", .{ @divFloor(position, std.time.s_per_hour), @mod(@divFloor(position, std.time.s_per_min), 60), @mod(position, std.time.s_per_min), @divFloor(duration, std.time.s_per_hour), @mod(@divFloor(duration, std.time.s_per_min), 60), @mod(duration, std.time.s_per_min) }, label_opts);
@@ -154,6 +198,9 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
             break idx;
         }
     } else 0;
+    if (init_opts.playback) |config| {
+        config.speed = speed;
+    }
 
     if (dvui.dropdown(@src(), &speeds_text, &speed_idx, .{ .font = font, .gravity_y = 0.5, .padding = .all(bar_padding), .margin = .all(bar_margin) })) {
         video_set_speed(player_id, speeds[speed_idx]);

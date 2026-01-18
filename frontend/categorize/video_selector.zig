@@ -1,8 +1,8 @@
 const std = @import("std");
 const dvui = @import("dvui");
 
-const imageViewer = @import("image_viewer.zig").imageViewer;
-const imageTexture = @import("image_viewer.zig").imageTexture;
+const imageViewer = @import("../image_viewer.zig").imageViewer;
+const imageTexture = @import("../image_viewer.zig").imageTexture;
 
 const Timestamp = @import("common").Timestamp;
 const api = @import("common").api;
@@ -72,7 +72,7 @@ pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: 
     overlay.drawBackground();
 
     const lifo = dvui.currentWindow().lifo();
-    const image_url = std.fmt.allocPrint(lifo, "/thumbnail/{s}", .{source}) catch "/";
+    const image_url = std.fmt.allocPrint(lifo, "/thumbnail/{s}", .{source}) catch "";
     defer lifo.free(image_url);
 
     const content_box = dvui.box(@src(), .{}, .{
