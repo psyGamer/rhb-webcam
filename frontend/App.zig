@@ -1,9 +1,7 @@
 const std = @import("std");
 const dvui = @import("dvui");
 
-const videoPlayer = @import("video_player.zig").videoPlayer;
-
-const categorize_view = @import("view/categorize.zig");
+const categorize_view = @import("categorize/view.zig");
 
 pub extern "meta" fn window_get_path() [*:0]const u8;
 pub extern "meta" fn window_get_search() [*:0]const u8;

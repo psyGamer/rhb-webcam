@@ -4,7 +4,7 @@ const dvui = @import("dvui");
 const time = @import("../time.zig");
 const fetch = @import("../fetch.zig");
 
-const videoSelector = @import("../video_selector.zig").videoSelector;
+const videoSelector = @import("video_selector.zig").videoSelector;
 
 const Timestamp = @import("common").Timestamp;
 const api = @import("common").api;
