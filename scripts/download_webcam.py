@@ -40,7 +40,6 @@ debug_mode = False
 debug_log = False
 output_video = video_source == webcam_url or not debug_mode
 
-
 T = TypeVar("T")
 class RingBuffer(Generic[T]):
     def __init__(self, capacity, dtype):
@@ -576,6 +575,8 @@ def run_capture(queue: DataQueue):
     prev_time2 = None
     textbox_time_size = (max_time_len * font_size + 1, (font_size + 1) * 2 + 1)
 
+    header_background: Image = None
+    
     capture = cv2.VideoCapture(video_source)
     writer = None
 
@@ -626,6 +627,9 @@ def run_capture(queue: DataQueue):
                 snippet_time = int(snippet_duration*meta.fps)
                 check_time = int(check_interval*meta.fps)
 
+                header_background = Image.new("LA", (meta.width, textbox_meta.height + font_size), color=(0,48))
+
+
             ## Setup output writer for current snippet
             now = datetime.now(ZoneInfo("Europe/Zurich"))
 
@@ -639,7 +643,7 @@ def run_capture(queue: DataQueue):
                 global last_image_write
                 if output_video and (last_image_write is None or last_image_write != hourly_now):
                     last_image_write = hourly_now
-                    cv2.imwrite(f"{os.getenv("WEBCAM_IMAGE_ARCHIVE")}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png", image_a)
+                    cv2.imwrite(f"{os.getenv("WEBCAM_IMAGE_ARCHIVE")}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png", curr_image)
 
                 target_dir = f"{os.getenv("WEBCAM_SNIPPET_CACHE")}/{now.strftime('%Y-%m-%d')}"
                 if (not os.path.exists(target_dir)):
@@ -663,17 +667,19 @@ def run_capture(queue: DataQueue):
                     textbox_time = Image.new("LA", textbox_time_size, color=(0,0))
                     draw_time = ImageDraw.Draw(textbox_time)
                     draw_time.text(((max_time_len - len(curr_time1)) * font_size + 1, 1), curr_time1, font=font, fill=(0,255))
-                    draw_time.text(((max_time_len - len(curr_time1)) * font_size, 0), curr_time1, font=font, fill=(255,255))
+                    draw_time.text(((max_time_len - len(curr_time1)) * font_size + 0, 0), curr_time1, font=font, fill=(255,255))
                     draw_time.text(((max_time_len - len(curr_time2)) * font_size + 1, font_size + 3), curr_time2, font=font, fill=(0,255))
-                    draw_time.text(((max_time_len - len(curr_time2)) * font_size, font_size + 2), curr_time2, font=font, fill=(255,255))
+                    draw_time.text(((max_time_len - len(curr_time2)) * font_size + 0, font_size + 2), curr_time2, font=font, fill=(255,255))
                     textbox_time = textbox_time.resize((textbox_time.width * font_scale, textbox_time.height * font_scale), Image.Resampling.NEAREST)
 
                     prev_time1 = curr_time1
                     prev_time2 = curr_time2
 
+                offset = int(font_size / 2)
                 pil_image = Image.fromarray(curr_image)
-                pil_image.paste(textbox_meta, (font_size, font_size), textbox_meta)
-                pil_image.paste(textbox_time, (meta.width - textbox_time.width - font_size, font_size), textbox_time)
+                pil_image.paste(header_background, (0,0), header_background)
+                pil_image.paste(textbox_meta, (offset, offset), textbox_meta)
+                pil_image.paste(textbox_time, (meta.width - textbox_time.width - offset, offset), textbox_time)
                 curr_image = np.array(pil_image)
                 writer.write(curr_image)
 
