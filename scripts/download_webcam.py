@@ -4,12 +4,15 @@ import subprocess
 
 from datetime import datetime
 from dataclasses import dataclass
+from zoneinfo import ZoneInfo
 from enum import Enum
 from queue import Queue
 from threading import Thread
 from typing import Generic, TypeVar
 
 from dotenv import load_dotenv
+
+from PIL import ImageFont, ImageDraw, Image
 
 import numpy as np
 import cv2
@@ -35,7 +38,7 @@ last_image_write = None
 preview_mode = True
 debug_mode = False
 debug_log = False
-output_video = False and video_source == webcam_url or not debug_mode
+output_video = video_source == webcam_url or not debug_mode
 
 
 T = TypeVar("T")
@@ -536,6 +539,43 @@ def run_analysis(queue: DataQueue):
 
 
 def run_capture(queue: DataQueue):
+    months = {
+         1: "Januar",
+         2: "Februar",
+         3: "März",
+         4: "April",
+         5: "Mai",
+         6: "Juni",
+         7: "Juli",
+         8: "August",
+         9: "September",
+        10: "Oktober",
+        11: "November",
+        12: "Dezember",
+    }
+
+    font = ImageFont.load("../assets/mobotix_8pt.pil")
+    font_size = 8
+    font_scale = 2
+
+    text_meta1 = "Filisur RhB Bahnhof"
+    text_meta2 = "Hotel Grischuna"
+    max_meta_len = max(len(text_meta1), len(text_meta2))
+    textbox_meta = Image.new("LA", (max_meta_len * font_size + 1, (font_size + 1) * 2 + 1), color=(0,0))
+    draw_meta = ImageDraw.Draw(textbox_meta)
+    draw_meta.text((1, 1), text_meta1, font=font, fill=(0, 255))
+    draw_meta.text((0, 0), text_meta1, font=font, fill=(255,255))
+    draw_meta.text((1, font_size + 3), text_meta2, font=font, fill=(0, 255))
+    draw_meta.text((0, font_size + 2), text_meta2, font=font, fill=(255,255))
+    textbox_meta = textbox_meta.resize((textbox_meta.width * font_scale, textbox_meta.height * font_scale), Image.Resampling.NEAREST)
+
+    max_text_time1 = "XX. September 20XX"
+    max_text_time2 = "XX:XX:XX CEST"
+    max_time_len = max(len(max_text_time1), len(max_text_time2))
+    prev_time1 = None
+    prev_time2 = None
+    textbox_time_size = (max_time_len * font_size + 1, (font_size + 1) * 2 + 1)
+
     capture = cv2.VideoCapture(video_source)
     writer = None
 
@@ -587,12 +627,13 @@ def run_capture(queue: DataQueue):
                 check_time = int(check_interval*meta.fps)
 
             ## Setup output writer for current snippet
+            now = datetime.now(ZoneInfo("Europe/Zurich"))
+
             if writer is None or snippet_counter >= snippet_time:
                 if writer:
                     writer.release()
                     queue.put(writer)
 
-                now = datetime.now()
                 hourly_now = now.replace(minute=0, second=0, microsecond=0)
 
                 global last_image_write
@@ -612,9 +653,28 @@ def run_capture(queue: DataQueue):
 
             if video_source != webcam_url:
                 debug_image = curr_image.copy()
-                cv2.putText(debug_image, "DEBUG REPLAY", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                cv2.putText(debug_image, "DEBUG REPLAY", (30, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
                 writer.write(debug_image)
             else:
+                curr_time1 = f"{now.day:02d}. {months[now.month]} {now.year}"
+                curr_time2 = f"{now:%H:%M:%S} {now.tzname():>4}"
+
+                if curr_time1 != prev_time1 or curr_time2 != prev_time2:
+                    textbox_time = Image.new("LA", textbox_time_size, color=(0,0))
+                    draw_time = ImageDraw.Draw(textbox_time)
+                    draw_time.text(((max_time_len - len(curr_time1)) * font_size + 1, 1), curr_time1, font=font, fill=(0,255))
+                    draw_time.text(((max_time_len - len(curr_time1)) * font_size, 0), curr_time1, font=font, fill=(255,255))
+                    draw_time.text(((max_time_len - len(curr_time2)) * font_size + 1, font_size + 3), curr_time2, font=font, fill=(0,255))
+                    draw_time.text(((max_time_len - len(curr_time2)) * font_size, font_size + 2), curr_time2, font=font, fill=(255,255))
+                    textbox_time = textbox_time.resize((textbox_time.width * font_scale, textbox_time.height * font_scale), Image.Resampling.NEAREST)
+
+                    prev_time1 = curr_time1
+                    prev_time2 = curr_time2
+
+                pil_image = Image.fromarray(curr_image)
+                pil_image.paste(textbox_meta, (font_size, font_size), textbox_meta)
+                pil_image.paste(textbox_time, (meta.width - textbox_time.width - font_size, font_size), textbox_time)
+                curr_image = np.array(pil_image)
                 writer.write(curr_image)
 
             frame_counter += 1

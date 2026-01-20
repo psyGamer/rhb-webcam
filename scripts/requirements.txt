@@ -3,6 +3,8 @@ python-dotenv
 
 # download_webcam.py
 opencv-python
+opencv-contrib-python
+pillow
 
 # parse_locomotive_allocations.py
 pdfplumber
