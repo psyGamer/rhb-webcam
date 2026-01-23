@@ -8,6 +8,7 @@ const videoSelector = @import("video_selector.zig").videoSelector;
 const videoPlayer = @import("../video_player.zig").videoPlayer;
 
 const Timestamp = @import("common").Timestamp;
+const Schedule = @import("common").Schedule;
 const api = @import("common").api;
 
 pub const route = "/categorize";
@@ -17,6 +18,8 @@ var selected_day: time.Date = undefined;
 var selected_index: usize = 0;
 
 var current_videos: ?std.json.Parsed(api.CategorizeFileList) = undefined;
+var current_suggestions: ?std.json.Parsed(api.SuggestionList) = undefined;
+var current_checked_suggestions: []bool = &.{};
 
 var playback_config: @import("../video_player.zig").InitOptions.PlaybackConfig = .{ .playing = true, .update = true };
 
@@ -24,7 +27,9 @@ pub fn init(query: []const u8) void {
     // Reset state
     selected_video = null;
     selected_day = .today();
+
     current_videos = null;
+    current_suggestions = null;
 
     // Parse query arguments
     var query_arg_iter = std.mem.tokenizeScalar(u8, query, '&');
@@ -40,7 +45,14 @@ pub fn init(query: []const u8) void {
         }
     }
 
-    fetch.fetchJsonObject(api.CategorizeFileList, "/categorize-api/file-list?day=2024-02-28", struct {
+    const lifo = dvui.currentWindow().lifo();
+
+    const filelist_url = std.fmt.allocPrint(lifo, "/categorize-api/file-list?day={f}", .{selected_day}) catch "";
+    defer lifo.free(filelist_url);
+    const suggestions_url = std.fmt.allocPrint(lifo, "/categorize-api/suggestions?day={f}", .{selected_day}) catch "";
+    defer lifo.free(suggestions_url);
+
+    fetch.fetchJsonObject(api.CategorizeFileList, filelist_url, struct {
         pub fn callback(value: fetch.JsonResult(api.CategorizeFileList), window: *dvui.Window) void {
             if (current_videos) |videos| {
                 videos.deinit();
@@ -76,6 +88,27 @@ pub fn init(query: []const u8) void {
             videos.deinit();
         }
     };
+
+    fetch.fetchJsonObject(api.SuggestionList, suggestions_url, struct {
+        pub fn callback(value: fetch.JsonResult(api.SuggestionList), window: *dvui.Window) void {
+            if (current_suggestions) |suggestions| {
+                suggestions.deinit();
+            }
+
+            current_suggestions = value catch |err| {
+                std.log.err("Failed to fetch train suggestion list: {}", .{err});
+                current_suggestions = null;
+                return;
+            };
+            current_checked_suggestions = window.gpa.realloc(current_checked_suggestions, current_suggestions.?.value.len) catch |err| {
+                std.log.err("Failed to allocate checked suggestion list: {}", .{err});
+                current_suggestions = null;
+                return;
+            };
+
+            dvui.refresh(window, @src(), null);
+        }
+    }.callback) catch {};
 }
 pub fn frame() void {
     const videos = current_videos orelse {
@@ -111,10 +144,109 @@ pub fn frame() void {
         const video_url = std.fmt.allocPrint(lifo, "video/{s}", .{selected}) catch "";
         defer lifo.free(video_url);
 
-        videoPlayer(@src(), .{
-            .source = video_url,
-            .control_bar = .show,
-            .playback = &playback_config,
-        }, .{});
+        // videoPlayer(@src(), .{
+        //     .source = video_url,
+        //     .control_bar = .show,
+        //     .playback = &playback_config,
+        // }, .{});
+    }
+    {
+        const data_box = dvui.box(@src(), .{}, .{ .expand = .vertical });
+        defer data_box.deinit();
+
+        if (current_suggestions) |suggestions| {
+            const quick_select = dvui.grid(@src(), .{ .num_cols = 6 }, .{}, .{ .background = true });
+            defer quick_select.deinit();
+
+            // // Find out if any row was clicked on.
+            // for (dvui.events()) |*e| {
+            //     if (!dvui.eventMatchSimple(e, quick_select.data()) or e.evt != .mouse)
+            //         continue;
+
+            //     const me = e.evt.mouse;
+            //     if (!(me.action == .press and me.button.pointer()) or !(me.action == .release and me.button.touch()))
+            //         continue;
+
+            //     if (quick_select.pointToCell(me.p)) |cell| {
+            //         if (cell.col_num <= 0) continue;
+            //         current_checked_suggestions[cell.row_num] = !current_checked_suggestions[cell.row_num];
+            //         break;
+            //     }
+            // }
+
+            var highlight_style: dvui.GridWidget.CellStyle.HoveredRow = .{ .cell_opts = .{ .color_fill_hover = .gray, .background = true } };
+            highlight_style.processEvents(quick_select);
+
+            dvui.gridHeading(@src(), quick_select, 0, "", .fixed, .{});
+            dvui.gridHeading(@src(), quick_select, 1, "Nr.", .fixed, .{});
+            dvui.gridHeading(@src(), quick_select, 2, "Typ", .fixed, .{});
+            dvui.gridHeading(@src(), quick_select, 3, "Herkunf", .fixed, .{});
+            dvui.gridHeading(@src(), quick_select, 4, "Ziel", .fixed, .{});
+            dvui.gridHeading(@src(), quick_select, 5, "Zeit", .fixed, .{});
+
+            for (suggestions.value, 0..) |suggestion, row_idx| {
+                const curr_checked = &current_checked_suggestions[row_idx];
+                var cell: dvui.GridWidget.Cell = .colRow(0, row_idx);
+
+                // Selection
+                {
+                    defer cell.col_num += 1;
+                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    defer cell_box.deinit();
+
+                    _ = dvui.checkbox(@src(), curr_checked, null, .{});
+                }
+                // Nummer
+                {
+                    defer cell.col_num += 1;
+                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    defer cell_box.deinit();
+
+                    if (dvui.clicked(cell_box.data(), .{})) curr_checked.* = !curr_checked.*;
+
+                    dvui.label(@src(), "{d}", .{suggestion.number}, .{});
+                }
+                // Typ
+                {
+                    defer cell.col_num += 1;
+                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    defer cell_box.deinit();
+
+                    if (dvui.clicked(cell_box.data(), .{})) curr_checked.* = !curr_checked.*;
+
+                    dvui.labelNoFmt(@src(), suggestion.classifier, .{}, .{});
+                }
+                // Herkunf
+                {
+                    defer cell.col_num += 1;
+                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    defer cell_box.deinit();
+
+                    if (dvui.clicked(cell_box.data(), .{})) curr_checked.* = !curr_checked.*;
+
+                    dvui.labelNoFmt(@src(), suggestion.origin, .{}, .{});
+                }
+                // Ziel
+                {
+                    defer cell.col_num += 1;
+                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    defer cell_box.deinit();
+
+                    if (dvui.clicked(cell_box.data(), .{})) curr_checked.* = !curr_checked.*;
+
+                    dvui.labelNoFmt(@src(), suggestion.destination, .{}, .{});
+                }
+                // Zeit
+                {
+                    defer cell.col_num += 1;
+                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    defer cell_box.deinit();
+
+                    if (dvui.clicked(cell_box.data(), .{})) curr_checked.* = !curr_checked.*;
+
+                    dvui.label(@src(), "{d:0>2}:{d:0>2}", .{ suggestion.time.hour, suggestion.time.minute }, .{});
+                }
+            }
+        }
     }
 }

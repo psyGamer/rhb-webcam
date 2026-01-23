@@ -10,7 +10,7 @@ const Zoir = std.zig.Zoir;
 const Schedule = @This();
 
 /// Parsed 24h clock time
-const Clock = struct {
+pub const Clock = struct {
     hour: u5, // 0-23
     minute: u6, // 0-59
 

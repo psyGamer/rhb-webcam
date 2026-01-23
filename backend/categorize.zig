@@ -6,7 +6,9 @@ const Schedules = @import("main.zig").Schedules;
 
 const Timestamp = @import("common").Timestamp;
 const Train = @import("common").Schedule.Train;
+
 const api = @import("common").api;
+const Suggestion = api.Suggestion;
 
 pub const routes: []const tk.Route = &.{
     .get("/file-list?", handleFileList),
@@ -50,7 +52,7 @@ fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.t
     return entries;
 }
 
-fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: struct { day: tk.time.Date }) !api.TrainList {
+fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: struct { day: tk.time.Date }) !api.SuggestionList {
     const curr_timestamp: Timestamp = .{
         .day = @intCast(query.day.day),
         .month = @enumFromInt(query.day.month),
@@ -63,15 +65,54 @@ fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: stru
         break s;
     } else return &.{};
 
-    var trains: std.ArrayList(Train) = try .initCapacity(arena, schedule.trains.len);
+    var suggestions: std.ArrayList(Suggestion) = try .initCapacity(arena, schedule.trains.len * 2);
 
     const default_date: Timestamp = .{};
     for (schedule.trains) |train| {
         if (train.applicable_start_date.year != default_date.year and train.applicable_start_date.after(curr_timestamp)) continue;
         if (train.applicable_end_date.year != default_date.year and train.applicable_end_date.before(curr_timestamp)) continue;
 
-        trains.appendAssumeCapacity(train);
+        switch (train.time) {
+            .arrival_departure => |time| {
+                const arrival_time, const departure_time = time;
+
+                suggestions.appendAssumeCapacity(.{
+                    .number = train.number,
+                    .time = arrival_time,
+
+                    .classifier = train.information.classifier,
+                    .origin = train.information.origin,
+                    .destination = "Filisur",
+                });
+                suggestions.appendAssumeCapacity(.{
+                    .number = train.number,
+                    .time = departure_time,
+
+                    .classifier = train.information.classifier,
+                    .origin = "Filisur",
+                    .destination = train.information.destination,
+                });
+            },
+            .transit => |time| {
+                suggestions.appendAssumeCapacity(.{
+                    .number = train.number,
+                    .time = time,
+
+                    .classifier = train.information.classifier,
+                    .origin = train.information.origin,
+                    .destination = train.information.destination,
+                });
+            },
+        }
     }
 
-    return trains.items;
+    std.mem.sort(Suggestion, suggestions.items, {}, struct {
+        pub fn lessThan(_: void, lhs: Suggestion, rhs: Suggestion) bool {
+            if (lhs.time.hour < rhs.time.hour) return true;
+            if (lhs.time.hour > rhs.time.hour) return false;
+            return lhs.time.minute < rhs.time.minute;
+        }
+    }.lessThan);
+
+    return suggestions.items;
 }

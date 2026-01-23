@@ -45,7 +45,7 @@ const banner_height = 70.0;
 
 const State = enum { none, categorized, selected };
 pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: State, opts: dvui.Options) bool {
-    const ts = Timestamp.parse(source) orelse return false;
+    const ts = Timestamp.parseSimple(source) orelse return false;
 
     const max_border: f32 = 10.0;
 
@@ -127,20 +127,19 @@ pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: 
     content_box.deinit();
 
     dvui.label(@src(), "{d}. {s} {d} {d:0>2}:{d:0>2}:{d:0>2}", .{ ts.day, switch (ts.month) {
-        1 => "Januar",
-        2 => "Februar",
-        3 => "März",
-        4 => "April",
-        5 => "Mai",
-        6 => "Juni",
-        7 => "Juli",
-        8 => "August",
-        9 => "September",
-        10 => "Oktober",
-        11 => "November",
-        12 => "Dezember",
-        else => unreachable,
-    }, ts.year, ts.hours, ts.minutes, ts.seconds }, .{ .margin = .all(5), .gravity_x = 0.5, .font = opts.fontGet().withWeight(.bold) });
+        .jan => "Januar",
+        .feb => "Februar",
+        .mar => "März",
+        .apr => "April",
+        .may => "Mai",
+        .jun => "Juni",
+        .jul => "Juli",
+        .aug => "August",
+        .sep => "September",
+        .oct => "Oktober",
+        .nov => "November",
+        .dec => "Dezember",
+    }, ts.year, ts.hour, ts.minute, ts.second }, .{ .margin = .all(5), .gravity_x = 0.5, .font = opts.fontGet().withWeight(.bold) });
 
     return click;
 }
