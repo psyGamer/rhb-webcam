@@ -1,0 +1,852 @@
+.{
+    // ===== Regiozüge =====
+
+    // - Richtung Chur -
+
+    // RE 38 (Morgens) - Richtung Chur
+    .{
+        .number = 1110,
+        .arrival_time = "05:52",
+        .departure_time = "05:53",
+        .applicable_weekdays = "12345",
+        .information = .{
+            .classifier = "RE 38",
+            .origin = "Samedan",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1114,
+        .arrival_time = "06:31",
+        .departure_time = "06:32",
+        .applicable_weekdays = "123456",
+        .information = .{
+            .classifier = "RE 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1116,
+        .arrival_time = "06:50",
+        .departure_time = "06:51",
+        .applicable_weekdays = "7",
+        .information = .{
+            .classifier = "RE 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    // IR 38 - Richtung Chur
+    .{
+        .number = 1120,
+        .arrival_time = "07:59",
+        .departure_time = "08:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1124,
+        .arrival_time = "08:59",
+        .departure_time = "09:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1128,
+        .arrival_time = "09:59",
+        .departure_time = "10:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1132,
+        .arrival_time = "10:59",
+        .departure_time = "11:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1136,
+        .arrival_time = "11:59",
+        .departure_time = "12:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1140,
+        .arrival_time = "12:59",
+        .departure_time = "13:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1144,
+        .arrival_time = "13:59",
+        .departure_time = "14:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1148,
+        .arrival_time = "14:59",
+        .departure_time = "15:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1152,
+        .arrival_time = "15:59",
+        .departure_time = "16:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1156,
+        .arrival_time = "16:59",
+        .departure_time = "17:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1160,
+        .arrival_time = "17:59",
+        .departure_time = "18:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1164,
+        .arrival_time = "18:59",
+        .departure_time = "19:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1168,
+        .arrival_time = "19:59",
+        .departure_time = "20:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    // RE 38 (Abends) - Richtung Chur
+    .{
+        .number = 1172,
+        .arrival_time = "20:59",
+        .departure_time = "21:00",
+        .information = .{
+            .classifier = "RE 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+    .{
+        .number = 1176,
+        .arrival_time = "21:59",
+        .departure_time = "22:02",
+        .applicable_weekdays = "56",
+        .information = .{
+            .classifier = "R 38",
+            .origin = "St. Moritz",
+            .destination = "Chur",
+        },
+    },
+
+    // - Richtung St. Moritz -
+
+    // RE 38 (Morgens) - Richtung St. Moritz
+    .{
+        .number = 1109,
+        .arrival_time = "06:13",
+        .departure_time = "06:14",
+        .applicable_weekdays = "123456",
+        .information = .{
+            .classifier = "RE 38",
+            .origin = "Chur",
+            .destination = "Samedan",
+        },
+    },
+    // IR 38 - Richtung St. Moritz
+    .{
+        .number = 1117,
+        .arrival_time = "07:59",
+        .departure_time = "08:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1121,
+        .arrival_time = "08:59",
+        .departure_time = "09:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1125,
+        .arrival_time = "09:59",
+        .departure_time = "10:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1129,
+        .arrival_time = "10:59",
+        .departure_time = "11:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1133,
+        .arrival_time = "11:59",
+        .departure_time = "12:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1137,
+        .arrival_time = "12:59",
+        .departure_time = "13:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1141,
+        .arrival_time = "13:59",
+        .departure_time = "14:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1145,
+        .arrival_time = "14:59",
+        .departure_time = "15:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1149,
+        .arrival_time = "15:59",
+        .departure_time = "16:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1153,
+        .arrival_time = "16:59",
+        .departure_time = "17:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1157,
+        .arrival_time = "17:59",
+        .departure_time = "18:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1161,
+        .arrival_time = "18:59",
+        .departure_time = "19:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1165,
+        .arrival_time = "19:59",
+        .departure_time = "20:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1169,
+        .arrival_time = "20:59",
+        .departure_time = "21:00",
+        .information = .{
+            .classifier = "IR 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    // R 38 (Abends) - Richtung St. Moritz
+    .{
+        .number = 1173,
+        .arrival_time = "22:04",
+        .departure_time = "22:05",
+        .information = .{
+            .classifier = "R 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 1177,
+        .arrival_time = "23:04",
+        .departure_time = "23:05",
+        .applicable_weekdays = "56",
+        .information = .{
+            .classifier = "R 38",
+            .origin = "Chur",
+            .destination = "St. Moritz",
+        },
+    },
+
+    // - Richtung Filisur -
+
+    // R 1 (Morgens) - Richtung Filisur
+    .{
+        .number = 7801,
+        .transit_time = "06:30",
+        .applicable_weekdays = "123456",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Davos Platz",
+            .destination = "Filisur",
+        },
+    },
+    // R 1 - Richtung Filisur
+    .{
+        .number = 7805,
+        .transit_time = "07:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7809,
+        .transit_time = "08:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7813,
+        .transit_time = "09:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7817,
+        .transit_time = "10:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7821,
+        .transit_time = "11:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7825,
+        .transit_time = "12:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7829,
+        .transit_time = "13:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7833,
+        .transit_time = "14:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7837,
+        .transit_time = "15:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7841,
+        .transit_time = "16:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7845,
+        .transit_time = "17:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7849,
+        .transit_time = "18:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7853,
+        .transit_time = "19:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    .{
+        .number = 7857,
+        .transit_time = "20:56",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Landquart",
+            .destination = "Filisur",
+        },
+    },
+    // - Richtung Davos Platz -
+
+    // R 1 (Morgens) - Richtung Davos Platz
+    .{
+        .number = 7804,
+        .transit_time = "06:34",
+        .applicable_weekdays = "123456",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    // R 1 - Richtung Davos Platz
+    .{
+        .number = 7808,
+        .transit_time = "08:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7812,
+        .transit_time = "09:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7816,
+        .transit_time = "10:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7820,
+        .transit_time = "11:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7824,
+        .transit_time = "12:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7828,
+        .transit_time = "13:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7832,
+        .transit_time = "14:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7836,
+        .transit_time = "15:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7840,
+        .transit_time = "16:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7844,
+        .transit_time = "17:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7848,
+        .transit_time = "18:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7852,
+        .transit_time = "19:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7856,
+        .transit_time = "20:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+    .{
+        .number = 7860,
+        .transit_time = "21:04",
+        .information = .{
+            .classifier = "R 1",
+            .origin = "Filisur",
+            .destination = "Landquart",
+        },
+    },
+
+    // ===== Sonderzüge ===== //
+
+    // Glacier Express
+    .{
+        .number = 920,
+        .transit_time = "14:43",
+        .applicable_end_date = "2026-01-04T23:59:59+01:00",
+        .information = .{
+            .classifier = "GEX",
+            .origin = "Zermatt",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 920,
+        .transit_time = "14:43",
+        .applicable_start_date = "2026-05-31T00:00:00+01:00",
+        .applicable_end_date = "2026-05-01T23:59:59+01:00",
+        .information = .{
+            .classifier = "GEX",
+            .origin = "Zermatt",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 902,
+        .arrival_time = "15:41",
+        .departure_time = "15:43",
+        .applicable_end_date = "2026-05-01T23:59:59+01:00",
+        .information = .{
+            .classifier = "GEX",
+            .origin = "Zermatt",
+            .destination = "St. Moritz",
+        },
+    },
+    .{
+        .number = 903,
+        .arrival_time = "09:26",
+        .departure_time = "09:29",
+        .applicable_end_date = "2026-05-01T23:59:59+01:00",
+        .information = .{
+            .classifier = "GEX",
+            .origin = "St. Moritz",
+            .destination = "Zermatt",
+        },
+    },
+    .{
+        .number = 905,
+        .transit_time = "10:42",
+        .applicable_end_date = "2026-01-04T23:59:59+01:00",
+        .information = .{
+            .classifier = "GEX",
+            .origin = "St. Moritz",
+            .destination = "Zermatt",
+        },
+    },
+    .{
+        .number = 905,
+        .transit_time = "10:42",
+        .applicable_start_date = "2026-05-31T00:00:00+01:00",
+        .applicable_end_date = "2026-05-01T23:59:59+01:00",
+        .information = .{
+            .classifier = "GEX",
+            .origin = "St. Moritz",
+            .destination = "Zermatt",
+        },
+    },
+    // TODO: Sommerglacier
+
+    // Bernina Express
+    .{
+        .number = 951,
+        .arrival_time = "9:29",
+        .departure_time = "9:32",
+        .information = .{
+            .classifier = "BEX",
+            .origin = "Chur",
+            .destination = "Tirano",
+        },
+    },
+    .{
+        .number = 952,
+        .arrival_time = "17:25",
+        .departure_time = "17:28",
+        .information = .{
+            .classifier = "BEX",
+            .origin = "Tirano",
+            .destination = "Chur",
+        },
+    },
+    // TODO: Sommerbernina
+
+    // ===== Güterzüge ===== //
+
+    // - Richtung Chur -
+    .{
+        .number = 5116,
+        .transit_time = "07:12",
+        .information = .{
+            .classifier = "G",
+            .origin = "Samedan",
+            .destination = "Chur GB",
+        },
+    },
+    .{
+        .number = 5120,
+        .transit_time = "08:19",
+        .information = .{
+            .classifier = "G",
+            .origin = "Samedan",
+            .destination = "Chur GB",
+        },
+    },
+    .{
+        .number = 5140,
+        .arrival_time = "12:26",
+        .departure_time = "12:29",
+        .information = .{
+            .classifier = "G",
+            .origin = "Pontresina",
+            .destination = "Landquart GB",
+        },
+    },
+    .{
+        .number = 5154,
+        .transit_time = "16:28",
+        .information = .{
+            .classifier = "G",
+            .origin = "Samedan",
+            .destination = "Landquart GB",
+        },
+    },
+    .{
+        .number = 5162,
+        .transit_time = "19:26",
+        .applicable_weekdays = "6",
+        .information = .{
+            .classifier = "G",
+            .origin = "Samedan",
+            .destination = "Landquart GB",
+        },
+    },
+    .{
+        .number = 5164,
+        .transit_time = "19:26",
+        .applicable_weekdays = "12345",
+        .information = .{
+            .classifier = "G",
+            .origin = "Samedan",
+            .destination = "Landquart GB",
+        },
+    },
+
+    // - Richtung St. Moritz -
+    .{
+        .number = 5113,
+        .transit_time = "08:11",
+        .information = .{
+            .classifier = "G",
+            .origin = "Landquart GB",
+            .destination = "Pontresina",
+        },
+    },
+    .{
+        .number = 5129,
+        .transit_time = "11:30",
+        .information = .{
+            .classifier = "G",
+            .origin = "Chur GB",
+            .destination = "Samedan",
+        },
+    },
+    .{
+        .number = 5135,
+        .transit_time = "12:30",
+        .information = .{
+            .classifier = "G",
+            .origin = "Landquart GB",
+            .destination = "Samedan",
+        },
+    },
+    .{
+        .number = 5151,
+        .transit_time = "16:11",
+        .information = .{
+            .classifier = "G",
+            .origin = "Landquart GB",
+            .destination = "Pontresina",
+        },
+    },
+    .{
+        .number = 5157,
+        .transit_time = "18:30",
+        .information = .{
+            .classifier = "G",
+            .origin = "Landquart GB",
+            .destination = "Pontresina",
+        },
+    },
+}

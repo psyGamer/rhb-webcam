@@ -4,9 +4,8 @@
     .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .dvui = .{
-            // .url = "git+https://github.com/david-vanderson/dvui?ref=main#99635ec12eae5e698b975fa10b5eed7b1a48c8ed",
-            // .hash = "dvui-0.4.0-dev-AQFJmRHz2QDFAN25xKzwydhJXB0l_TmWZkuofvKmrJkU",
-            .path = "../dvui",
+            .url = "git+https://github.com/david-vanderson/dvui?ref=main#99635ec12eae5e698b975fa10b5eed7b1a48c8ed",
+            .hash = "dvui-0.4.0-dev-AQFJmRHz2QDFAN25xKzwydhJXB0l_TmWZkuofvKmrJkU",
         },
         .tokamak = .{
             .url = "git+https://github.com/cztomsik/tokamak?ref=main#a25b84dab9a0557f9496263529b08b574ac6b0e6",
@@ -15,6 +14,10 @@
         .dotenv = .{
             .url = "git+https://github.com/xcaeser/zig-dotenv.git?ref=v0.8.0#dfda7f7996594ca260290693fd0b415611e8cbc8",
             .hash = "dotenv-0.8.0-lRzK2Yl1AAARwki_I2HYib8qWbb8mjUfn8GRhfdCQnpY",
+        },
+        .zeit = .{
+            .url = "git+https://github.com/rockorager/zeit?ref=main#7ac64d72dbfb1a4ad549102e7d4e232a687d32d8",
+            .hash = "zeit-0.6.0-5I6bk36tAgATpSl9wjFmRPMqYN2Mn0JQHgIcRNcqDpJA",
         },
     },
     .paths = .{

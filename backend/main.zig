@@ -8,6 +8,8 @@ const dotenv = @import("dotenv");
 const assetDirectory = @import("static.zig").assetDirectory;
 const staticFile = @import("static.zig").staticFile;
 
+const Schedule = @import("common").Schedule;
+
 pub const std_options: std.Options = .{
     .logFn = @import("logging.zig").logFn,
     .fmt_max_depth = 10,
@@ -42,6 +44,9 @@ pub const Env = dotenv.Env(enum {
     /// Directory where raw webcam footage is stored
     WEBCAM_SNIPPET_CACHE,
 
+    /// Directory for temporarily caching thumbnail images for videos
+    THUMBNAIL_CACHE,
+
     /// Directory for temporarily archiving deleted videos
     DELETED_VIDEO_ARCHIVE,
 
@@ -49,10 +54,9 @@ pub const Env = dotenv.Env(enum {
     LOCOMOTIVE_ALLOCATIONS_ARCHIVE,
     /// Directory for storing parsed JSON files for the locomotive allocations
     LOCOMOTIVE_ALLOCATIONS_STORAGE,
-
-    /// Directory for temporarily caching thumbnail images for videos
-    THUMBNAIL_CACHE,
 });
+/// Collection of parsed train schedules
+pub const Schedules = []const Schedule;
 
 pub fn main() !void {
     var debug_allocator: if (runtime_safety) std.heap.DebugAllocator(.{}) else void = if (runtime_safety) .init else {};
@@ -60,14 +64,23 @@ pub fn main() !void {
 
     const allocator = if (runtime_safety) debug_allocator.allocator() else std.heap.smp_allocator;
 
+    // Load .env
     var env: Env = .init(allocator, false);
     defer env.deinit();
 
     try env.load(.{});
 
+    // Load train schedules
+    const schedules = b: {
+        var schedule_dir = try std.fs.cwd().openDir("schedule", .{});
+        defer schedule_dir.close();
+
+        break :b try Schedule.load(schedule_dir, allocator);
+    };
+
     const server_routes = if (builtin.mode == .Debug) &.{tk.logger(.{}, routes)} else routes;
 
-    var injector: tk.Injector = .init(&.{.ref(&env)}, null);
+    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules) }, null);
     var server: tk.Server = try .init(allocator, server_routes, .{
         .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
         .injector = &injector,

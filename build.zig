@@ -41,6 +41,7 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
     });
 
     const dvui_dep = b.dependency("dvui", .{ .target = target, .optimize = optimize, .backend = .web });
+    const zeit_dep = b.dependency("zeit", .{ .target = target, .optimize = optimize });
 
     const common_module = b.createModule(.{
         .target = target,
@@ -48,6 +49,9 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
         .root_source_file = b.path("common/lib.zig"),
         .link_libc = false,
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
+        .imports = &.{
+            .{ .name = "zeit", .module = zeit_dep.module("zeit") },
+        },
     });
     const frontend_module = b.createModule(.{
         .target = target,
@@ -56,6 +60,7 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
         .imports = &.{
             .{ .name = "common", .module = common_module },
             .{ .name = "dvui", .module = dvui_dep.module("dvui_web") },
+            .{ .name = "zeit", .module = zeit_dep.module("zeit") },
         },
         .link_libc = false,
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
@@ -110,12 +115,16 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     const tokamak_dep = b.dependency("tokamak", .{ .target = target, .optimize = optimize });
     const httpz_dep = tokamak_dep.builder.dependency("httpz", .{ .target = target, .optimize = optimize });
     const dotenv_dep = b.dependency("dotenv", .{ .target = target, .optimize = optimize });
+    const zeit_dep = b.dependency("zeit", .{ .target = target, .optimize = optimize });
 
     const common_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .root_source_file = b.path("common/lib.zig"),
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
+        .imports = &.{
+            .{ .name = "zeit", .module = zeit_dep.module("zeit") },
+        },
     });
     const backend_module = b.createModule(.{
         .target = target,
@@ -126,6 +135,7 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
             .{ .name = "tokamak", .module = tokamak_dep.module("tokamak") },
             .{ .name = "httpz", .module = httpz_dep.module("httpz") },
             .{ .name = "dotenv", .module = dotenv_dep.module("dotenv") },
+            .{ .name = "zeit", .module = zeit_dep.module("zeit") },
         },
         .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
     });
@@ -144,6 +154,7 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     compile_step.dependOn(&install_exe.step);
 
     compile_step.dependOn(&b.addInstallFileWithDir(b.path(".env"), install_dir, ".env").step);
+    compile_step.dependOn(&b.addInstallDirectory(.{ .source_dir = b.path("schedule"), .install_dir = install_dir, .install_subdir = "schedule" }).step);
 
     return .{ compile_step, exe };
 }
