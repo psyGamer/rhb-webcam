@@ -79,6 +79,7 @@ fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: stru
                 suggestions.appendAssumeCapacity(.{
                     .number = train.number,
                     .time = arrival_time,
+                    .type = .arrival,
 
                     .classifier = train.information.classifier,
                     .origin = train.information.origin,
@@ -87,6 +88,7 @@ fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: stru
                 suggestions.appendAssumeCapacity(.{
                     .number = train.number,
                     .time = departure_time,
+                    .type = .departure,
 
                     .classifier = train.information.classifier,
                     .origin = "Filisur",
@@ -97,6 +99,13 @@ fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: stru
                 suggestions.appendAssumeCapacity(.{
                     .number = train.number,
                     .time = time,
+                    // Slight hack for the train to/from Davos Platz to be properly recognized
+                    .type = if (std.mem.eql(u8, train.information.origin, "Filisur"))
+                        .departure
+                    else if (std.mem.eql(u8, train.information.destination, "Filisur"))
+                        .arrival
+                    else
+                        .transit,
 
                     .classifier = train.information.classifier,
                     .origin = train.information.origin,
