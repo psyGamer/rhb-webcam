@@ -2,11 +2,15 @@ const std = @import("std");
 const tk = @import("tokamak");
 
 const Env = @import("main.zig").Env;
+const Schedules = @import("main.zig").Schedules;
+
 const Timestamp = @import("common").Timestamp;
+const Train = @import("common").Schedule.Train;
 const api = @import("common").api;
 
 pub const routes: []const tk.Route = &.{
     .get("/file-list?", handleFileList),
+    .get("/suggestions?", handleSuggestions),
 };
 
 fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.time.Date, includeCategorized: bool = false }) !api.CategorizeFileList {
@@ -44,4 +48,30 @@ fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.t
         entry.* = .{ .path = video, .categorized = false };
     }
     return entries;
+}
+
+fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: struct { day: tk.time.Date }) !api.TrainList {
+    const curr_timestamp: Timestamp = .{
+        .day = @intCast(query.day.day),
+        .month = @enumFromInt(query.day.month),
+        .year = query.day.year,
+        .hour = 12, // Middle of the day to avoid any issues
+    };
+
+    const schedule = for (schedules) |s| {
+        if (s.start_date.after(curr_timestamp) or s.end_date.before(curr_timestamp)) continue;
+        break s;
+    } else return &.{};
+
+    var trains: std.ArrayList(Train) = try .initCapacity(arena, schedule.trains.len);
+
+    const default_date: Timestamp = .{};
+    for (schedule.trains) |train| {
+        if (train.applicable_start_date.year != default_date.year and train.applicable_start_date.after(curr_timestamp)) continue;
+        if (train.applicable_end_date.year != default_date.year and train.applicable_end_date.before(curr_timestamp)) continue;
+
+        trains.appendAssumeCapacity(train);
+    }
+
+    return trains.items;
 }

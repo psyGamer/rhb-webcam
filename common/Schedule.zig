@@ -1,6 +1,7 @@
 //! Parses and processes expected train schedules
 const std = @import("std");
-const zeit = @import("zeit");
+
+const Timestamp = @import("Timestamp.zig");
 
 const Ast = std.zig.Ast;
 const ZonGen = std.zig.ZonGen;
@@ -8,24 +9,6 @@ const Zoir = std.zig.Zoir;
 
 const Schedule = @This();
 
-/// Parsed ISO8601 date and timestamp
-const Timestamp = struct {
-    year: i32 = 1970,
-    month: zeit.Month = .jan,
-    day: u5 = 1, // 1-31
-    hour: u5 = 0, // 0-23
-    minute: u6 = 0, // 0-59
-    second: u6 = 0, // 0-60
-    offset: i32 = 0, // offset from UTC in seconds
-
-    pub fn parse(zoir: Zoir, node_idx: Zoir.Node.Index) !Timestamp {
-        const node = node_idx.get(zoir);
-        const node_string = if (node == .string_literal) node.string_literal else return error.ParseZon;
-
-        const time = try zeit.Time.fromISO8601(node_string);
-        return .{ .year = time.year, .month = time.month, .day = time.day, .hour = time.hour, .minute = time.minute, .second = time.second, .offset = time.offset };
-    }
-};
 /// Parsed 24h clock time
 const Clock = struct {
     hour: u5, // 0-23
@@ -61,8 +44,8 @@ const Entry = struct {
             const field = std.meta.stringToEnum(std.meta.FieldEnum(Entry), name) orelse return error.UnknownField;
             fields.set(@intFromEnum(field));
             switch (field) {
-                .start_date => result.start_date = try .parse(zoir, value_node),
-                .end_date => result.end_date = try .parse(zoir, value_node),
+                .start_date => result.start_date = try .parseZonISO8601(zoir, value_node),
+                .end_date => result.end_date = try .parseZonISO8601(zoir, value_node),
                 .file_path => result.file_path = try gpa.dupe(u8, switch (value_node.get(zoir)) {
                     .string_literal => |lit| lit,
                     else => return error.ParseZon,
@@ -74,7 +57,7 @@ const Entry = struct {
     }
 };
 
-const Train = struct {
+pub const Train = struct {
     const Information = struct {
         classifier: []const u8 = "",
         origin: []const u8 = "",
@@ -191,8 +174,8 @@ const Train = struct {
                     },
                     else => return error.ParseZon,
                 },
-                .applicable_start_date => result.applicable_start_date = try .parse(zoir, value_node),
-                .applicable_end_date => result.applicable_end_date = try .parse(zoir, value_node),
+                .applicable_start_date => result.applicable_start_date = try .parseZonISO8601(zoir, value_node),
+                .applicable_end_date => result.applicable_end_date = try .parseZonISO8601(zoir, value_node),
 
                 .information => result.information = try .parse(gpa, zoir, value_node),
             }

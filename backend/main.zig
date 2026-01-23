@@ -71,7 +71,7 @@ pub fn main() !void {
     try env.load(.{});
 
     // Load train schedules
-    const schedules = b: {
+    var schedules: Schedules = b: {
         var schedule_dir = try std.fs.cwd().openDir("schedule", .{});
         defer schedule_dir.close();
 

@@ -6,7 +6,7 @@ const Timestamp = @import("common").Timestamp;
 const sendFile = @import("static.zig").sendFile;
 
 pub fn handler(arena: std.mem.Allocator, ctx: *tk.Context, env: *Env, path: []const u8) anyerror!void {
-    if (!Timestamp.isValid(path)) return;
+    if (!Timestamp.isValidSimple(path)) return;
 
     const day = path[0.."YYYY-MM-DD".len];
 
