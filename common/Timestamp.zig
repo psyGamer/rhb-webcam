@@ -2,6 +2,16 @@
 const std = @import("std");
 const zeit = @import("zeit");
 
+pub const Weekday = enum(u3) {
+    mon = 0,
+    tue = 1,
+    wed = 2,
+    thu = 3,
+    fri = 4,
+    sat = 5,
+    sun = 6,
+};
+
 const Timestamp = @This();
 
 year: i32 = 1970,
@@ -22,6 +32,7 @@ pub fn instant(self: Timestamp) zeit.Instant {
         .month = self.month,
         .day = self.day,
     });
+
     return .{
         .timestamp = @as(i128, days) * std.time.ns_per_day +
             @as(i128, self.hour) * std.time.ns_per_hour +
@@ -30,6 +41,17 @@ pub fn instant(self: Timestamp) zeit.Instant {
             @as(i128, self.offset) * std.time.ns_per_s,
         .timezone = &zeit.utc,
     };
+}
+/// Calculates the respective weekday of this time
+pub fn weekday(self: Timestamp) Weekday {
+    const days = zeit.daysFromCivil(.{
+        .year = self.year,
+        .month = self.month,
+        .day = self.day,
+    });
+
+    // The date 1970-01-01 was a thursday
+    return @enumFromInt(@mod(days + @intFromEnum(Weekday.thu), 7));
 }
 
 pub fn compare(self: Timestamp, time: Timestamp) zeit.TimeComparison {

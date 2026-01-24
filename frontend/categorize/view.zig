@@ -23,7 +23,7 @@ const TrainInfo = struct {
     shunting: bool = false,
     from_direction: Direction align(@alignOf(usize)),
     to_direction: Direction align(@alignOf(usize)),
-    locomotives: std.ArrayList(struct { loco: Locomotive, towed: bool }) = .empty,
+    locomotives: std.ArrayList(Locomotive) = .empty,
 };
 
 var selected_video: ?[Timestamp.fmt.len]u8 = undefined;
@@ -33,6 +33,8 @@ var selected_index: usize = 0;
 var current_videos: ?std.json.Parsed(api.CategorizeFileList) = undefined;
 var current_suggestions: ?std.json.Parsed(api.SuggestionList) = undefined;
 var current_trains: std.AutoArrayHashMapUnmanaged(TrainKey, TrainInfo) = undefined;
+
+var scroll_to_suggestion: ?u32 = null;
 
 var focused_text: struct {
     buffer: [64]u8 = undefined,
@@ -49,6 +51,8 @@ pub fn init(query: []const u8) void {
     current_videos = null;
     current_suggestions = null;
     current_trains = .empty;
+
+    scroll_to_suggestion = null;
 
     // Parse query arguments
     var query_arg_iter = std.mem.tokenizeScalar(u8, query, '&');
@@ -100,6 +104,8 @@ pub fn init(query: []const u8) void {
                 selected_index = 0;
             }
 
+            scrollCurrentSuggestionInView();
+
             dvui.refresh(window, @src(), null);
         }
     }.callback) catch {
@@ -119,6 +125,8 @@ pub fn init(query: []const u8) void {
                 current_suggestions = null;
                 return;
             };
+
+            scrollCurrentSuggestionInView();
 
             dvui.refresh(window, @src(), null);
         }
@@ -148,6 +156,7 @@ pub fn frame() void {
             selected_video = videos.value[selected_index].path;
             playback_config.playing = true; // Enable auto-play
             playback_config.update = true; // Enable auto-play
+            scrollCurrentSuggestionInView();
         }
     }
     {
@@ -194,6 +203,11 @@ pub fn frame() void {
                     defer cell.col_num += 1;
                     var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
                     defer cell_box.deinit();
+
+                    if (row_idx == scroll_to_suggestion) {
+                        quick_select.scroll.si.scrollToOffset(.vertical, cell_box.data().rect.y + cell_box.data().rect.h / 2.0 - quick_select.data().rect.h / 2.0);
+                        scroll_to_suggestion = null;
+                    }
 
                     _ = dvui.checkbox(@src(), &curr_checked, null, .{});
                 }
@@ -248,18 +262,31 @@ pub fn frame() void {
                     dvui.label(@src(), "{d:0>2}:{d:0>2}", .{ suggestion.time.hour, suggestion.time.minute }, .{});
                 }
 
-                if (curr_checked != was_checked) {
+                if (curr_checked != was_checked) b: {
                     if (curr_checked) {
-                        current_trains.put(dvui.currentWindow().gpa, key, .{
+                        const gpa = dvui.currentWindow().gpa;
+
+                        var locomotives = std.ArrayList(Locomotive).initCapacity(gpa, suggestion.locomotives.len) catch break :b;
+                        locomotives.items.len = suggestion.locomotives.len;
+                        for (suggestion.locomotives) |loco| {
+                            locomotives.items[loco.position] = .{
+                                .number = loco.number,
+                                .category = Locomotive.getCategory(loco.number) orelse .none,
+                                .towed = loco.towed,
+                            };
+                        }
+
+                        current_trains.put(gpa, key, .{
                             .from_direction = Direction.known_directions.get(suggestion.origin).?,
                             .to_direction = Direction.known_directions.get(suggestion.destination).?,
-                        }) catch {};
+                            .locomotives = locomotives,
+                        }) catch locomotives.deinit(gpa);
                     } else {
                         _ = current_trains.orderedRemove(key);
                     }
                 }
             }
-        };
+        } else dvui.spinner(@src(), .{ .gravity_x = 0.5, .gravity_y = 0.5 });
 
         if (data_paned.showSecond()) {
             var needs_reindex = false;
@@ -397,7 +424,7 @@ pub fn frame() void {
                     defer hbox.deinit();
 
                     if (dvui.buttonLabelAndIcon(@src(), .{ .button_opts = .{}, .label = "Lok Hinzufügen", .tvg_bytes = dvui.entypo.plus, .icon_first = true }, .{ .expand = .horizontal, .font = bold_font, .style = .highlight })) {
-                        value.locomotives.append(dvui.currentWindow().gpa, .{ .loco = .{ .number = 0, .category = .none }, .towed = false }) catch {};
+                        value.locomotives.append(dvui.currentWindow().gpa, .{ .number = 0, .category = .none, .towed = false }) catch {};
                     }
 
                     la_train.spacer(@src(), 0);
@@ -409,9 +436,7 @@ pub fn frame() void {
 
                 // Locomotives
                 var modify_loco: struct { usize, usize } = .{ 0, 0 };
-                for (value.locomotives.items, 0..) |*entry, loco_idx| {
-                    const loco = &entry.loco;
-
+                for (value.locomotives.items, 0..) |*loco, loco_idx| {
                     const loco_box = dvui.box(@src(), .{}, .{ .id_extra = loco_idx, .style = .window, .background = true, .expand = .horizontal, .corner_radius = .all(8), .margin = .all(5), .padding = .all(5) });
                     defer loco_box.deinit();
 
@@ -488,7 +513,7 @@ pub fn frame() void {
                         la_loco.spacer(@src(), 0);
 
                         dvui.labelNoFmt(@src(), "Geschleppt", .{}, label_opts.override(.{}));
-                        _ = dvui.checkbox(@src(), &entry.towed, null, .{ .gravity_y = 0.5 });
+                        _ = dvui.checkbox(@src(), &loco.towed, null, .{ .gravity_y = 0.5 });
                     }
                     {
                         const hbox = dvui.box(@src(), .{ .dir = .horizontal }, .{});
@@ -534,6 +559,26 @@ pub fn frame() void {
             }
         }
     }
+}
+
+fn scrollCurrentSuggestionInView() void {
+    if (current_suggestions) |suggestions| if (selected_video) |video| {
+        const curr_time = Timestamp.parseSimple(&video) orelse return;
+        const curr_clock: Schedule.Clock = .{ .hour = curr_time.hour, .minute = curr_time.minute };
+
+        var min_dist: u32 = std.math.maxInt(i32);
+        var min_idx: u32 = 0;
+
+        for (suggestions.value, 0..) |sug, idx| {
+            const dist = @abs(sug.time.minuteDiff(curr_clock));
+            if (dist < min_dist) {
+                min_dist = dist;
+                min_idx = @intCast(idx);
+            }
+        }
+
+        scroll_to_suggestion = min_idx;
+    };
 }
 
 var tmp_buffer: [focused_text.buffer.len]u8 = undefined;

@@ -1,6 +1,7 @@
 const Timestamp = @import("Timestamp.zig");
 const Schedule = @import("Schedule.zig");
-const Direction = @import("direction.zig").Direction;
+const TrainAllocation = @import("TrainAllocation.zig");
+const Locomotive = @import("Locomotive.zig");
 
 const Train = Schedule.Train;
 const Clock = Schedule.Clock;
@@ -19,14 +20,20 @@ pub const Suggestion = struct {
     classifier: []const u8,
     origin: []const u8,
     destination: []const u8,
+
+    locomotives: []const TrainAllocation.Locomotive,
 };
 pub const SuggestionList = []const Suggestion;
 
 /// Describes a single specific train in detail
 pub const TrainDescription = struct {
+    pub const Direction = enum { chur, moritz, davos, filisur };
+
     number: u32,
 
     shunting: bool = false,
     from_direction: Direction,
     to_direction: Direction,
+
+    locomotives: []const Locomotive,
 };

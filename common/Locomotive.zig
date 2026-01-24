@@ -39,6 +39,8 @@ pub const Category = enum {
 number: u32,
 category: Category,
 
+towed: bool,
+
 /// Human-readable names for locomotive categorizes
 pub const category_names: std.EnumArray(Category, []const u8) = .init(.{
     .none = "Kategorie auswählen...",

@@ -24,6 +24,14 @@ pub const Clock = struct {
             .minute = try std.fmt.parseInt(u6, node_string[(sep_idx + 1)..], 10),
         };
     }
+
+    pub fn cmp(lhs: Clock, rhs: Clock) std.math.Order {
+        return std.math.order(@as(u11, lhs.hour) * 60 + lhs.minute, @as(u11, rhs.hour) * 60 + rhs.minute);
+    }
+
+    pub fn minuteDiff(self: Clock, other: Clock) i32 {
+        return @as(i32, @as(u11, self.hour) * 60 + self.minute) - @as(i32, @as(u11, other.hour) * 60 + other.minute);
+    }
 };
 
 const Entry = struct {
@@ -103,7 +111,7 @@ pub const Train = struct {
         transit: Clock,
     },
 
-    applicable_weekdays: std.StaticBitSet(7) = .initFull(),
+    applicable_weekdays: std.EnumSet(Timestamp.Weekday) = .initFull(),
     applicable_start_date: Timestamp = .{},
     applicable_end_date: Timestamp = .{},
 
@@ -169,7 +177,7 @@ pub const Train = struct {
                         result.applicable_weekdays = .initEmpty();
                         for (lit) |day| {
                             if (day < '1' or day > '7') return error.ParseZon;
-                            result.applicable_weekdays.set(day - '1');
+                            result.applicable_weekdays.insert(@enumFromInt(day - '1'));
                         }
                     },
                     else => return error.ParseZon,

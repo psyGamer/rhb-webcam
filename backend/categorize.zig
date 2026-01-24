@@ -3,6 +3,7 @@ const tk = @import("tokamak");
 
 const Env = @import("main.zig").Env;
 const Schedules = @import("main.zig").Schedules;
+const TrainAllocationPool = @import("main.zig").TrainAllocationPool;
 
 const Timestamp = @import("common").Timestamp;
 const Train = @import("common").Schedule.Train;
@@ -52,7 +53,7 @@ fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.t
     return entries;
 }
 
-fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: struct { day: tk.time.Date }) !api.SuggestionList {
+fn handleSuggestions(ctx: tk.Context, arena: std.mem.Allocator, schedules: Schedules, pool: *TrainAllocationPool, env: *Env, query: struct { day: tk.time.Date }) !api.SuggestionList {
     const curr_timestamp: Timestamp = .{
         .day = @intCast(query.day.day),
         .month = @enumFromInt(query.day.month),
@@ -65,12 +66,32 @@ fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: stru
         break s;
     } else return &.{};
 
+    const train_allocations = pool.get(ctx.server.allocator, env, query.day) catch |err| {
+        if (@errorReturnTrace()) |t| {
+            std.debug.dumpStackTrace(t.*);
+        }
+        return err;
+    };
+
     var suggestions: std.ArrayList(Suggestion) = try .initCapacity(arena, schedule.trains.len * 2);
 
     const default_date: Timestamp = .{};
     for (schedule.trains) |train| {
         if (train.applicable_start_date.year != default_date.year and train.applicable_start_date.after(curr_timestamp)) continue;
         if (train.applicable_end_date.year != default_date.year and train.applicable_end_date.before(curr_timestamp)) continue;
+        if (!train.applicable_weekdays.contains(curr_timestamp.weekday())) continue;
+
+        const min_time, const max_time = switch (train.time) {
+            .arrival_departure => |time| time,
+            .transit => |time| .{ time, time },
+        };
+        const locomotives = for (train_allocations) |alloc| {
+            if (alloc.number != train.number) continue;
+            if (alloc.departure_time.cmp(min_time) == .gt) continue;
+            if (alloc.arrival_time.cmp(max_time) == .lt) continue;
+
+            break alloc.locomotives;
+        } else &.{};
 
         switch (train.time) {
             .arrival_departure => |time| {
@@ -84,6 +105,8 @@ fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: stru
                     .classifier = train.information.classifier,
                     .origin = train.information.origin,
                     .destination = "Filisur",
+
+                    .locomotives = locomotives,
                 });
                 suggestions.appendAssumeCapacity(.{
                     .number = train.number,
@@ -93,6 +116,8 @@ fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: stru
                     .classifier = train.information.classifier,
                     .origin = "Filisur",
                     .destination = train.information.destination,
+
+                    .locomotives = locomotives,
                 });
             },
             .transit => |time| {
@@ -110,6 +135,8 @@ fn handleSuggestions(arena: std.mem.Allocator, schedules: Schedules, query: stru
                     .classifier = train.information.classifier,
                     .origin = train.information.origin,
                     .destination = train.information.destination,
+
+                    .locomotives = locomotives,
                 });
             },
         }
