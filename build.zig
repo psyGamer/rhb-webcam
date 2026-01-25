@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
 
     const use_llvm = b.option(bool, "use-llvm", "Use LLVM for compiling") orelse (optimize != .Debug);
 
-    const frontend_step = compileFrontend(b, optimize, use_llvm);
+    const frontend_step = compileAdminFrontend(b, optimize, use_llvm);
     const backend_step, const backend_exe = compileBackend(b, target, optimize, use_llvm);
     backend_step.dependOn(frontend_step);
 
@@ -34,7 +34,7 @@ pub fn build(b: *std.Build) void {
     check.dependOn(&exe_check.step);
 }
 
-fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: bool) *std.Build.Step {
+fn compileAdminFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: bool) *std.Build.Step {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .freestanding,
@@ -79,7 +79,7 @@ fn compileFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: 
     // exe.use_llvm = use_llvm;
     // exe.use_lld = use_llvm;
 
-    const install_dir: std.Build.InstallDir = .{ .custom = "dist" };
+    const install_dir: std.Build.InstallDir = .{ .custom = "admin-dist" };
     const install_wasm = b.addInstallArtifact(wasm_exe, .{ .dest_dir = .{ .override = install_dir } });
 
     // Hash files to invalidate browser cache

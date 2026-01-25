@@ -13,7 +13,7 @@ const Locomotive = @import("common").Locomotive;
 const api = @import("common").api;
 const time = @import("common").time;
 
-pub const route = "/categorize";
+pub const route = "/admin/categorize";
 
 const TrainKey = struct {
     number: u32,
@@ -72,9 +72,9 @@ pub fn init(query: []const u8) void {
 
     const lifo = dvui.currentWindow().lifo();
 
-    const filelist_url = std.fmt.allocPrint(lifo, "/categorize-api/file-list?day={f}", .{selected_day}) catch "";
+    const filelist_url = std.fmt.allocPrint(lifo, "/admin/api/file-list?day={f}", .{selected_day}) catch "";
     defer lifo.free(filelist_url);
-    const suggestions_url = std.fmt.allocPrint(lifo, "/categorize-api/suggestions?day={f}", .{selected_day}) catch "";
+    const suggestions_url = std.fmt.allocPrint(lifo, "/admin/api/suggestions?day={f}", .{selected_day}) catch "";
     defer lifo.free(suggestions_url);
 
     net.fetchJsonObjectLeaky(api.CategorizeFileList, filelist_url, struct {
@@ -279,7 +279,7 @@ pub fn frame() void {
         defer player_box.deinit();
 
         const selected = selected_video orelse current_videos[0].path;
-        const video_url = std.fmt.allocPrint(lifo, "video/{s}", .{selected}) catch "";
+        const video_url = std.fmt.allocPrint(lifo, "/video/{s}", .{selected}) catch "";
         defer lifo.free(video_url);
 
         videoPlayer(@src(), .{
@@ -320,7 +320,7 @@ pub fn frame() void {
                         fn callafter(_: dvui.Id, response: dvui.enums.DialogResponse) !void {
                             if (response == .ok) {
                                 const lifo_alloc = dvui.currentWindow().lifo();
-                                const delete_path = std.fmt.allocPrint(lifo_alloc, "/categorize-api/delete?file={s}", .{&selected_video.?}) catch {
+                                const delete_path = std.fmt.allocPrint(lifo_alloc, "/admin/api/delete?file={s}", .{&selected_video.?}) catch {
                                     std.log.err("Failed to allocate DELETE url to delete current video", .{});
                                     return;
                                 };
@@ -377,7 +377,7 @@ pub fn frame() void {
                     };
                 }
 
-                const put_path = std.fmt.allocPrint(lifo, "/categorize-api/update?file={s}", .{&video}) catch {
+                const put_path = std.fmt.allocPrint(lifo, "/admin/api/update?file={s}", .{&video}) catch {
                     std.log.err("Failed to allocate PUT url to update current train descriptions", .{});
                     break :b;
                 };

@@ -12,16 +12,32 @@ pub const AuthOptions = struct {
 pub fn requireAuth(options: AuthOptions, children: []const tk.Route) tk.Route {
     const H = struct {
         fn handleAuth(ctx: *tk.Context) anyerror!void {
-            const token = ctx.req.header("authorization") orelse {
-                try sendAuthRequest(ctx);
-                return;
-            };
-            if (!try validateAuth(ctx, token)) {
-                try sendAuthRequest(ctx);
-                return;
-            }
+            var validated = false;
+            for (ctx.current.children) |route| {
+                if (route.match(ctx.req)) |params| {
+                    // Delay validation until we actually match something
+                    if (!validated) {
+                        const token = ctx.req.header("authorization") orelse {
+                            try sendAuthRequest(ctx);
+                            return;
+                        };
+                        if (!try validateAuth(ctx, token)) {
+                            try sendAuthRequest(ctx);
+                            return;
+                        }
+                        validated = true;
+                    }
 
-            return ctx.next();
+                    ctx.current = route;
+                    ctx.params = params;
+
+                    if (route.handler) |handler| {
+                        try handler(ctx);
+                    } else {
+                        try ctx.next();
+                    }
+                }
+            }
         }
 
         /// Allows the client to authenticate with the 'Basic' method

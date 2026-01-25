@@ -18,27 +18,25 @@ pub const std_options: std.Options = .{
     .fmt_max_depth = 10,
 };
 
-const dist_dir = "dist/";
+const admin_dist_dir = "admin-dist/";
 
 const routes: []const tk.Route = &.{
-    // Views (all point to index.html, since the router is in the frontend)
-    .get("/", staticFile(dist_dir ++ "index.html")),
-
-    // DVUI assets
-    .get("/web.wasm", staticFile(dist_dir ++ "web.wasm")),
-    .get("/web.js", staticFile(dist_dir ++ "web.js")),
-    .get("/video.js", staticFile(dist_dir ++ "video.js")),
-    .get("/meta.js", staticFile(dist_dir ++ "meta.js")),
-
     // CDN
     .get("/video/:path", @import("video.zig").handler),
     .get("/thumbnail/:path", @import("thumbnail.zig").handler),
 
-    // Categorization
-    requireAuth(.{ .realm = "Categorize", .validate = validateCategorizeLogin }, &.{
-        .get("/categorize", staticFile(dist_dir ++ "index.html")),
-        .group("/categorize-api", @import("categorize.zig").routes),
-    }),
+    // Admin
+    requireAuth(.{ .realm = "Admin", .validate = validateAdminLogin }, &.{.group("/admin", &.{
+        // DVUI views
+        .get("/categorize", staticFile(admin_dist_dir ++ "index.html")),
+        // DVUI assets
+        .get("/web.wasm", staticFile(admin_dist_dir ++ "web.wasm")),
+        .get("/web.js", staticFile(admin_dist_dir ++ "web.js")),
+        .get("/video.js", staticFile(admin_dist_dir ++ "video.js")),
+        .get("/meta.js", staticFile(admin_dist_dir ++ "meta.js")),
+        // API
+        .group("/api", @import("categorize.zig").routes),
+    })}),
 };
 
 pub const Env = dotenv.Env(enum {
@@ -62,7 +60,7 @@ pub const Env = dotenv.Env(enum {
 
     /// File containing all valid credentials for logging into the categorizaion view
     /// Each line has the format 'username<TAB>password'
-    CATEGORIZE_LOGIN,
+    ADMIN_CREDENTIALS_PATH,
 });
 
 /// Collection of parsed train schedules
@@ -148,7 +146,7 @@ pub fn main() !void {
 
     // Load 'categorize' credentials
     const cred_storage = b: {
-        const cred_file = try std.fs.cwd().openFile(env.key(.CATEGORIZE_LOGIN), .{});
+        const cred_file = try std.fs.cwd().openFile(env.key(.ADMIN_CREDENTIALS_PATH), .{});
         defer cred_file.close();
 
         const data = try cred_file.readToEndAlloc(allocator, std.math.maxInt(usize));
@@ -181,7 +179,7 @@ pub fn main() !void {
     try server.start();
 }
 
-fn validateCategorizeLogin(ctx: *tk.Context, username: []const u8, password: []const u8) bool {
+fn validateAdminLogin(ctx: *tk.Context, username: []const u8, password: []const u8) bool {
     const cred = ctx.injector.get(CredentialStorage) catch return false;
     return std.mem.eql(u8, password, cred.get(username) orelse return false);
 }
