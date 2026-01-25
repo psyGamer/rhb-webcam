@@ -11,6 +11,8 @@ const staticFile = @import("static.zig").staticFile;
 const Schedule = @import("common").Schedule;
 const TrainAllocation = @import("common").TrainAllocation;
 
+const requireAuth = @import("auth.zig").requireAuth;
+
 pub const std_options: std.Options = .{
     .logFn = @import("logging.zig").logFn,
     .fmt_max_depth = 10,
@@ -21,7 +23,6 @@ const dist_dir = "dist/";
 const routes: []const tk.Route = &.{
     // Views (all point to index.html, since the router is in the frontend)
     .get("/", staticFile(dist_dir ++ "index.html")),
-    .get("/categorize", staticFile(dist_dir ++ "index.html")),
 
     // DVUI assets
     .get("/web.wasm", staticFile(dist_dir ++ "web.wasm")),
@@ -33,8 +34,11 @@ const routes: []const tk.Route = &.{
     .get("/video/:path", @import("video.zig").handler),
     .get("/thumbnail/:path", @import("thumbnail.zig").handler),
 
-    // API
-    .group("/categorize-api", @import("categorize.zig").routes),
+    // Categorization
+    requireAuth(.{ .realm = "Categorize", .validate = validateCategorizeLogin }, &.{
+        .get("/categorize", staticFile(dist_dir ++ "index.html")),
+        .group("/categorize-api", @import("categorize.zig").routes),
+    }),
 };
 
 pub const Env = dotenv.Env(enum {
@@ -55,6 +59,10 @@ pub const Env = dotenv.Env(enum {
     LOCOMOTIVE_ALLOCATIONS_ARCHIVE,
     /// Directory for storing parsed JSON files for the locomotive allocations
     LOCOMOTIVE_ALLOCATIONS_STORAGE,
+
+    /// File containing all valid credentials for logging into the categorizaion view
+    /// Each line has the format 'username<TAB>password'
+    CATEGORIZE_LOGIN,
 });
 
 /// Collection of parsed train schedules
@@ -113,6 +121,9 @@ pub const TrainAllocationPool = struct {
     }
 };
 
+/// Military-grade secure credential storage pool
+const CredentialStorage = std.StringArrayHashMapUnmanaged([]const u8);
+
 pub fn main() !void {
     var debug_allocator: if (runtime_safety) std.heap.DebugAllocator(.{}) else void = if (runtime_safety) .init else {};
     defer if (runtime_safety) std.debug.assert(debug_allocator.deinit() == .ok);
@@ -135,9 +146,31 @@ pub fn main() !void {
     // Prepare train allocation pool
     var pool: TrainAllocationPool = .init;
 
+    // Load 'categorize' credentials
+    const cred_storage = b: {
+        const cred_file = try std.fs.cwd().openFile(env.key(.CATEGORIZE_LOGIN), .{});
+        defer cred_file.close();
+
+        const data = try cred_file.readToEndAlloc(allocator, std.math.maxInt(usize));
+        errdefer allocator.free(data);
+
+        var storage: CredentialStorage = .empty;
+
+        var line_iter = std.mem.tokenizeAny(u8, data, "\r\n");
+        while (line_iter.next()) |line| {
+            const split_idx = std.mem.indexOfScalar(u8, line, '\t') orelse continue;
+            const username = line[0..split_idx];
+            const password = line[(split_idx + 1)..];
+
+            try storage.put(allocator, username, password);
+        }
+
+        break :b storage;
+    };
+
     const server_routes = if (builtin.mode == .Debug) &.{tk.logger(.{}, routes)} else routes;
 
-    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool) }, null);
+    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage) }, null);
     var server: tk.Server = try .init(allocator, server_routes, .{
         .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
         .injector = &injector,
@@ -146,4 +179,9 @@ pub fn main() !void {
 
     std.log.info("Server running on http://localhost:8000", .{});
     try server.start();
+}
+
+fn validateCategorizeLogin(ctx: *tk.Context, username: []const u8, password: []const u8) bool {
+    const cred = ctx.injector.get(CredentialStorage) catch return false;
+    return std.mem.eql(u8, password, cred.get(username) orelse return false);
 }

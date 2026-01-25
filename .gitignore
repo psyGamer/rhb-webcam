@@ -1,4 +1,8 @@
 zig-out
 .zig-cache
 
+.env
+
 scripts/archive_files.txt
+scripts/flush_files.txt
+scripts/logs
