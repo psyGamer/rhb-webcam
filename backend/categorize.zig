@@ -14,6 +14,9 @@ const Suggestion = api.Suggestion;
 pub const routes: []const tk.Route = &.{
     .get("/file-list?", handleFileList),
     .get("/suggestions?", handleSuggestions),
+
+    .put("/update?", handleUpdate),
+    .delete("/delete?", handleDelete),
 };
 
 fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.time.Date, includeCategorized: bool = false }) !api.CategorizeFileList {
@@ -48,7 +51,7 @@ fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.t
 
     const entries = try arena.alloc(api.CategorizeFileEntry, videos.len);
     for (videos, entries) |video, *entry| {
-        entry.* = .{ .path = video, .categorized = false };
+        entry.* = .{ .path = video, .descs = &.{} };
     }
     return entries;
 }
@@ -151,4 +154,12 @@ fn handleSuggestions(ctx: tk.Context, arena: std.mem.Allocator, schedules: Sched
     }.lessThan);
 
     return suggestions.items;
+}
+
+fn handleUpdate(query: struct { file: []const u8 }, data: []const api.TrainDescription) void {
+    std.log.info("TODO: /update?=file{s} with {any}", .{ query.file, data });
+}
+
+fn handleDelete(query: struct { file: []const u8 }) void {
+    std.log.info("TODO: /delete?=file{s}", .{query.file});
 }

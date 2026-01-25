@@ -2,12 +2,13 @@ const Timestamp = @import("Timestamp.zig");
 const Schedule = @import("Schedule.zig");
 const TrainAllocation = @import("TrainAllocation.zig");
 const Locomotive = @import("Locomotive.zig");
+const Direction = @import("direction.zig").Direction;
 
 const Train = Schedule.Train;
 const Clock = Schedule.Clock;
 
-pub const CategorizeFileEntry = struct { path: [Timestamp.fmt.len]u8, categorized: bool };
-pub const CategorizeFileList = []const CategorizeFileEntry;
+pub const CategorizeFileEntry = struct { path: [Timestamp.fmt.len]u8, descs: []const TrainDescription };
+pub const CategorizeFileList = []CategorizeFileEntry;
 
 /// Suggestion for a specific train on a desired day
 pub const Suggestion = struct {
@@ -27,8 +28,6 @@ pub const SuggestionList = []const Suggestion;
 
 /// Describes a single specific train in detail
 pub const TrainDescription = struct {
-    pub const Direction = enum { chur, moritz, davos, filisur };
-
     number: u32,
 
     shunting: bool = false,

@@ -10,6 +10,7 @@ const api = @import("common").api;
 const InitOptions = struct {
     videos: api.CategorizeFileList,
     selected: *usize,
+    scroll_to_current: bool = false,
 };
 pub fn videoSelector(src: std.builtin.SourceLocation, init_opts: InitOptions, opts: dvui.Options) bool {
     const scroll = dvui.scrollArea(src, .{}, opts);
@@ -20,18 +21,23 @@ pub fn videoSelector(src: std.builtin.SourceLocation, init_opts: InitOptions, op
         const state: State =
             if (idx == init_opts.selected.*)
                 .selected
-            else if (video.categorized)
+            else if (video.descs.len > 0)
                 .categorized
             else
                 .none;
 
-        if (videoPreview(@src(), &video.path, state, .{
+        var preview_rect: dvui.Rect = undefined;
+        if (videoPreview(@src(), &video.path, state, &preview_rect, .{
             .id_extra = idx,
             .margin = .all(5),
             .corner_radius = .all(15),
         })) {
             init_opts.selected.* = idx;
             updated = true;
+        }
+
+        if (init_opts.scroll_to_current and state == .selected) {
+            scroll.si.scrollToOffset(.vertical, preview_rect.y + preview_rect.h / 2.0 - scroll.data().rect.h / 2.0);
         }
     }
     return updated;
@@ -44,7 +50,7 @@ const preview_height = preview_width / target_aspect_ratio;
 const banner_height = 70.0;
 
 const State = enum { none, categorized, selected };
-pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: State, opts: dvui.Options) bool {
+pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: State, rect: *dvui.Rect, opts: dvui.Options) bool {
     const ts = Timestamp.parseSimple(source) orelse return false;
 
     const max_border: f32 = 10.0;
@@ -54,7 +60,10 @@ pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: 
         .min_size_content = .{ .w = preview_width, .h = preview_height },
         .max_size_content = .{ .w = preview_width, .h = preview_height },
     }));
-    defer overlay.deinit();
+    defer {
+        rect.* = overlay.data().rect;
+        overlay.deinit();
+    }
 
     var hover = false;
     const click = dvui.clicked(overlay.data(), .{ .hovered = &hover });

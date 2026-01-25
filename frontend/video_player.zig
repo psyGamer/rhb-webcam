@@ -124,9 +124,20 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
         config.update = false;
     }
 
-    const image = dvui.image(@src(), .{ .source = .{ .texture = texture.* }, .shrink = .both }, .{ .corner_radius = opts.corner_radius });
-    const image_rs = image.rectScale();
-    const image_rect = image_rs.r.scale(1.0 / image_rs.s, dvui.Rect.Physical);
+    const image_rect = b: {
+        const image_box = dvui.box(src, .{}, .{ .expand = .both });
+        defer image_box.deinit();
+
+        const cr = image_box.data().contentRect();
+        const image_rect = dvui.placeIn(cr, .{ .w = @floatFromInt(texture.width), .h = @floatFromInt(texture.height) }, .ratio, .{ .x = 0.5, .y = 0.5 });
+        const image_rs = image_box.data().rectScale().rectToRectScale(image_rect);
+
+        dvui.renderTexture(texture.*, image_rs, .{ .corner_radius = opts.corner_radiusGet() }) catch |err| {
+            dvui.logError(@src(), err, "Could not render image {?s} at {}", .{ opts.name, image_rs });
+        };
+
+        break :b image_rs.r.scale(1.0 / image_rs.s, dvui.Rect.Physical);
+    };
 
     const bar_size = 32;
     const bar_margin = 6;
@@ -136,7 +147,7 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
     defer dvui.alphaSet(prev_alpha);
 
     var floating: dvui.FloatingWidget = undefined;
-    floating.init(@src(), .{ .mouse_events = true }, .{ .rect = .{ .x = image_rect.x, .y = image_rect.y + image_rect.h - bar_size, .w = image_rect.w, .h = bar_size + bar_margin * 2 } });
+    floating.init(@src(), .{ .mouse_events = true }, .{ .rect = .{ .x = image_rect.x, .y = image_rect.y + image_rect.h - bar_size - bar_margin * 2, .w = image_rect.w, .h = bar_size + bar_margin * 2 } });
     defer floating.deinit();
 
     const bar_box = dvui.box(@src(), .{ .dir = .horizontal }, .{ .background = true, .expand = .both, .padding = .all(0), .corner_radius = opts.corner_radius });
@@ -159,11 +170,14 @@ pub fn videoPlayer(src: std.builtin.SourceLocation, init_opts: InitOptions, opts
         }
     }
 
-    const speeds = [_]f32{ 1.0, 2.0, 3.0, 4.0, 5.0, 10.0, 15.0 };
+    const speeds = [_]f32{ 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0 };
     const speeds_text = comptime b: {
         var names: [speeds.len][]const u8 = undefined;
         for (speeds, &names) |speed, *name| {
-            name.* = std.fmt.comptimePrint("{:.0}x", .{speed});
+            name.* = if (speed < 1)
+                std.fmt.comptimePrint("{:.2}x", .{speed})
+            else
+                std.fmt.comptimePrint("{:.0}x", .{speed});
         }
         break :b names;
     };

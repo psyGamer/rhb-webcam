@@ -1,7 +1,7 @@
 const std = @import("std");
 const dvui = @import("dvui");
 
-const fetch = @import("../fetch.zig");
+const net = @import("../net.zig");
 
 const videoSelector = @import("video_selector.zig").videoSelector;
 const videoPlayer = @import("../video_player.zig").videoPlayer;
@@ -30,11 +30,12 @@ var selected_video: ?[Timestamp.fmt.len]u8 = undefined;
 var selected_day: time.Date = undefined;
 var selected_index: usize = 0;
 
-var current_videos: ?std.json.Parsed(api.CategorizeFileList) = undefined;
+var current_videos: api.CategorizeFileList = undefined;
 var current_suggestions: ?std.json.Parsed(api.SuggestionList) = undefined;
 var current_trains: std.AutoArrayHashMapUnmanaged(TrainKey, TrainInfo) = undefined;
 
 var scroll_to_suggestion: ?u32 = null;
+var scroll_to_video: bool = false;
 
 var focused_text: struct {
     buffer: [64]u8 = undefined,
@@ -48,11 +49,12 @@ pub fn init(query: []const u8) void {
     selected_video = null;
     selected_day = .today();
 
-    current_videos = null;
+    current_videos = &.{};
     current_suggestions = null;
     current_trains = .empty;
 
     scroll_to_suggestion = null;
+    scroll_to_video = false;
 
     // Parse query arguments
     var query_arg_iter = std.mem.tokenizeScalar(u8, query, '&');
@@ -75,47 +77,95 @@ pub fn init(query: []const u8) void {
     const suggestions_url = std.fmt.allocPrint(lifo, "/categorize-api/suggestions?day={f}", .{selected_day}) catch "";
     defer lifo.free(suggestions_url);
 
-    fetch.fetchJsonObject(api.CategorizeFileList, filelist_url, struct {
-        pub fn callback(value: fetch.JsonResult(api.CategorizeFileList), window: *dvui.Window) void {
-            if (current_videos) |videos| {
-                videos.deinit();
-            }
+    net.fetchJsonObjectLeaky(api.CategorizeFileList, filelist_url, struct {
+        pub fn callback(value: net.JsonResultLeaky(api.CategorizeFileList), window: *dvui.Window) void {
+            const gpa = window.gpa;
 
-            current_videos = value catch |err| {
+            // Free old data
+            for (current_videos) |video| {
+                for (video.descs) |desc| {
+                    gpa.free(desc.locomotives);
+                }
+                gpa.free(video.descs);
+            }
+            gpa.free(current_videos);
+
+            const new_videos = value catch |err| {
                 std.log.err("Failed to fetch video list: {}", .{err});
-                current_videos = null;
+                current_videos = &.{};
                 return;
             };
-            const videos = current_videos.?.value;
+
+            current_videos = gpa.alloc(api.CategorizeFileEntry, new_videos.len) catch {
+                std.log.err("Failed to allocate new videos", .{});
+                return;
+            };
+
+            for (current_videos, new_videos) |*curr_video, new_video| {
+                const descs = gpa.alloc(api.TrainDescription, new_video.descs.len) catch {
+                    std.log.err("Failed to new train descriptions for video", .{});
+                    current_videos = &.{};
+                    return;
+                };
+
+                for (descs, new_video.descs) |*curr_desc, new_desc| {
+                    const locomotives = gpa.alloc(Locomotive, new_desc.locomotives.len) catch {
+                        std.log.err("Failed to new locomotives for train descriptions", .{});
+                        current_videos = &.{};
+                        return;
+                    };
+
+                    for (locomotives, new_desc.locomotives) |*curr_loco, new_loco| {
+                        curr_loco.* = new_loco;
+                    }
+
+                    curr_desc.number = new_desc.number;
+                    curr_desc.shunting = new_desc.shunting;
+                    curr_desc.from_direction = new_desc.from_direction;
+                    curr_desc.to_direction = new_desc.to_direction;
+                    curr_desc.locomotives = locomotives;
+                }
+
+                curr_video.path = new_video.path;
+                curr_video.descs = descs;
+            }
 
             // Find currently selected
             if (selected_video) |selected| {
-                for (videos, 0..) |video, idx| {
+                for (current_videos, 0..) |video, idx| {
                     if (std.mem.eql(u8, &video.path, &selected)) {
                         selected_index = idx;
                         break;
                     }
                 } else {
-                    selected_video = if (videos.len > 0) videos[0].path else null;
+                    selected_video = if (current_videos.len > 0) current_videos[0].path else null;
                     selected_index = 0;
                 }
             } else {
-                selected_video = if (videos.len > 0) videos[0].path else null;
+                selected_video = if (current_videos.len > 0) current_videos[0].path else null;
                 selected_index = 0;
             }
 
-            scrollCurrentSuggestionInView();
+            updateCurrentVideo(gpa);
 
             dvui.refresh(window, @src(), null);
         }
     }.callback) catch {
-        if (current_videos) |videos| {
-            videos.deinit();
+        const gpa = dvui.currentWindow().gpa;
+
+        for (current_videos) |video| {
+            for (video.descs) |desc| {
+                gpa.free(desc.locomotives);
+            }
+            gpa.free(video.descs);
         }
+        gpa.free(current_videos);
+
+        current_videos = &.{};
     };
 
-    fetch.fetchJsonObject(api.SuggestionList, suggestions_url, struct {
-        pub fn callback(value: fetch.JsonResult(api.SuggestionList), window: *dvui.Window) void {
+    net.fetchJsonObject(api.SuggestionList, suggestions_url, struct {
+        pub fn callback(value: net.JsonResult(api.SuggestionList), window: *dvui.Window) void {
             if (current_suggestions) |suggestions| {
                 suggestions.deinit();
             }
@@ -126,24 +176,20 @@ pub fn init(query: []const u8) void {
                 return;
             };
 
-            scrollCurrentSuggestionInView();
+            updateCurrentVideo(window.gpa);
 
             dvui.refresh(window, @src(), null);
         }
     }.callback) catch {};
 }
 pub fn frame() void {
-    const videos = current_videos orelse {
+    if (selected_video == null or current_videos.len == 0) {
         dvui.spinner(@src(), .{ .gravity_x = 0.5, .gravity_y = 0.5 });
-        return;
-    };
-    if (selected_video == null or videos.value.len == 0) {
-        dvui.labelNoFmt(@src(), "No videos available", .{}, .{ .gravity_x = 0.5, .gravity_y = 0.5 });
         return;
     }
 
     // Map keys 1-4 onto Albulas for efficency
-    for (dvui.events()) |ev| {
+    for (dvui.events()) |*ev| {
         if (ev.evt != .key) continue;
 
         const ke = ev.evt.key;
@@ -204,38 +250,161 @@ pub fn frame() void {
                 std.log.err("Failed to allocate train entry", .{});
             };
         }
+
+        ev.handled = true;
     }
 
     const box = dvui.box(@src(), .{ .dir = .horizontal }, .{ .expand = .both });
     defer box.deinit();
 
+    const theme = dvui.themeGet();
+    const gpa = dvui.currentWindow().gpa;
     const lifo = dvui.currentWindow().lifo();
 
     {
         const selector_box = dvui.box(@src(), .{}, .{ .expand = .vertical });
         defer selector_box.deinit();
 
-        dvui.label(@src(), "Video: '{s}' // Day: {f}", .{ if (selected_video) |video| &video else "", selected_day }, .{});
-        if (videoSelector(@src(), .{ .videos = videos.value, .selected = &selected_index }, .{ .background = false })) {
-            selected_video = videos.value[selected_index].path;
-            playback_config.playing = true; // Enable auto-play
-            playback_config.update = true; // Enable auto-play
-            scrollCurrentSuggestionInView();
+        if (videoSelector(@src(), .{ .videos = current_videos, .selected = &selected_index, .scroll_to_current = scroll_to_video }, .{ .background = false })) {
+            selected_video = current_videos[selected_index].path;
+            // Enable auto-play
+            playback_config.playing = true;
+            playback_config.update = true;
+            updateCurrentVideo(gpa);
         }
+        scroll_to_video = false;
     }
     {
-        const player_box = dvui.box(@src(), .{}, .{ .expand = .vertical });
+        const player_box = dvui.box(@src(), .{}, .{ .expand = .both });
         defer player_box.deinit();
 
-        const selected = selected_video orelse videos.value[0].path;
+        const selected = selected_video orelse current_videos[0].path;
         const video_url = std.fmt.allocPrint(lifo, "video/{s}", .{selected}) catch "";
         defer lifo.free(video_url);
 
-        // videoPlayer(@src(), .{
-        //     .source = video_url,
-        //     .control_bar = .show,
-        //     .playback = &playback_config,
-        // }, .{});
+        videoPlayer(@src(), .{
+            .source = video_url,
+            .control_bar = .show,
+            .playback = &playback_config,
+        }, .{ .expand = .both, .corner_radius = .all(6) });
+
+        {
+            const video = selected_video.?;
+
+            const ctrl_box = dvui.box(@src(), .{ .dir = .horizontal }, .{ .gravity_x = 0.5, .padding = .all(8) });
+            defer ctrl_box.deinit();
+
+            const valid = current_trains.count() > 0 and check: for (current_trains.values()) |value| {
+                if (value.from_direction == value.to_direction and !value.shunting) break false;
+                var all_towed = true;
+                for (value.locomotives.items) |loco| {
+                    if (!loco.towed) all_towed = false;
+                    if (loco.number == 0 and loco.category != .none) continue;
+                    if (loco.number != 0 and Locomotive.getCategory(loco.number) == loco.category) continue;
+                    break :check false;
+                }
+                if (all_towed) break false;
+            } else true;
+
+            const opts: dvui.Options = .{ .font = theme.font_body.larger(2).withWeight(.bold), .padding = .all(8), .margin = .rect(8, 4, 8, 4) };
+            const save = enablableButtonLabelIcon(@src(), "Speichern", dvui.entypo.save, .{}, .{}, opts.override(.{ .style = .highlight }), valid);
+            const next = enablableButtonLabelIcon(@src(), "Weiter", dvui.entypo.controller_next, .{}, .{}, opts.override(.{ .style = .highlight }), selected_index + 1 < current_videos.len);
+            if (enablableButtonLabelIcon(@src(), "Zuschneiden", dvui.entypo.scissors, .{}, .{}, opts.override(.{}), false)) {
+                // TODO
+            }
+            if (enablableButtonLabelIcon(@src(), "Löschen", dvui.entypo.trash, .{}, .{}, opts.override(.{ .style = .err }), true)) {
+                dvui.dialog(@src(), .{}, .{
+                    .title = "Video löschen?",
+                    .message = "Bist du sicher, dass du dieses Video löschen möchtest?",
+                    .callafterFn = struct {
+                        fn callafter(_: dvui.Id, response: dvui.enums.DialogResponse) !void {
+                            if (response == .ok) {
+                                const lifo_alloc = dvui.currentWindow().lifo();
+                                const delete_path = std.fmt.allocPrint(lifo_alloc, "/categorize-api/delete?file={s}", .{&selected_video.?}) catch {
+                                    std.log.err("Failed to allocate DELETE url to delete current video", .{});
+                                    return;
+                                };
+                                defer lifo_alloc.free(delete_path);
+
+                                net.delete(delete_path, null);
+                            }
+                        }
+                    }.callafter,
+                    .ok_label = "Löschen",
+                    .cancel_label = "Abbrechen",
+                    .default = .cancel,
+                });
+            }
+
+            const enter = check: for (dvui.events()) |*ev| {
+                if (ev.evt != .key) continue;
+
+                const ke = ev.evt.key;
+                if (ke.action != .down) continue;
+
+                switch (ke.code) {
+                    .enter => {
+                        ev.handled = true;
+                        break :check true;
+                    },
+                    else => continue,
+                }
+            } else false;
+
+            if (save or (valid and (next or enter))) b: {
+                const train_descs = gpa.alloc(api.TrainDescription, current_trains.count()) catch {
+                    std.log.err("Failed to allocate current train descriptions", .{});
+                    break :b;
+                };
+
+                for (current_videos[selected_index].descs) |desc| {
+                    gpa.free(desc.locomotives);
+                }
+                current_videos[selected_index].descs = train_descs;
+
+                for (current_trains.keys(), current_trains.values(), train_descs) |key, value, *desc| {
+                    desc.* = .{
+                        .number = key.number,
+
+                        .shunting = value.shunting,
+                        .from_direction = value.from_direction,
+                        .to_direction = value.to_direction,
+
+                        .locomotives = gpa.dupe(Locomotive, value.locomotives.items) catch {
+                            std.log.err("Failed to clone locomotives of train description", .{});
+                            break :b;
+                        },
+                    };
+                }
+
+                const put_path = std.fmt.allocPrint(lifo, "/categorize-api/update?file={s}", .{&video}) catch {
+                    std.log.err("Failed to allocate PUT url to update current train descriptions", .{});
+                    break :b;
+                };
+                defer lifo.free(put_path);
+
+                var body_writer: std.Io.Writer.Allocating = .init(lifo);
+                defer body_writer.deinit();
+
+                const json_formatter = std.json.fmt(train_descs, .{});
+                json_formatter.format(&body_writer.writer) catch {
+                    std.log.err("Failed to generate body to update current train descriptions", .{});
+                    break :b;
+                };
+
+                net.put(put_path, body_writer.written());
+            }
+            if (selected_index + 1 < current_videos.len and (next or enter)) {
+                selected_index += 1;
+                selected_video = current_videos[selected_index].path;
+
+                // Enable auto-play
+                playback_config.playing = true;
+                playback_config.update = true;
+
+                updateCurrentVideo(gpa);
+            }
+        }
     }
     {
         const data_paned = dvui.paned(@src(), .{ .direction = .vertical, .collapsed_size = 0, .handle_dynamic = .{} }, .{ .expand = .vertical });
@@ -265,10 +434,10 @@ pub fn frame() void {
                 // Selection
                 {
                     defer cell.col_num += 1;
-                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    const cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
                     defer cell_box.deinit();
 
-                    if (row_idx == scroll_to_suggestion) {
+                    if (!dvui.firstFrame(cell_box.data().id) and row_idx == scroll_to_suggestion) {
                         quick_select.scroll.si.scrollToOffset(.vertical, cell_box.data().rect.y + cell_box.data().rect.h / 2.0 - quick_select.data().rect.h / 2.0);
                         scroll_to_suggestion = null;
                     }
@@ -278,7 +447,7 @@ pub fn frame() void {
                 // Nummer
                 {
                     defer cell.col_num += 1;
-                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    const cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
                     defer cell_box.deinit();
 
                     if (dvui.clicked(cell_box.data(), .{})) curr_checked = !curr_checked;
@@ -288,7 +457,7 @@ pub fn frame() void {
                 // Typ
                 {
                     defer cell.col_num += 1;
-                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    const cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
                     defer cell_box.deinit();
 
                     if (dvui.clicked(cell_box.data(), .{})) curr_checked = !curr_checked;
@@ -298,7 +467,7 @@ pub fn frame() void {
                 // Herkunf
                 {
                     defer cell.col_num += 1;
-                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    const cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
                     defer cell_box.deinit();
 
                     if (dvui.clicked(cell_box.data(), .{})) curr_checked = !curr_checked;
@@ -308,7 +477,7 @@ pub fn frame() void {
                 // Ziel
                 {
                     defer cell.col_num += 1;
-                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    const cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
                     defer cell_box.deinit();
 
                     if (dvui.clicked(cell_box.data(), .{})) curr_checked = !curr_checked;
@@ -318,7 +487,7 @@ pub fn frame() void {
                 // Zeit
                 {
                     defer cell.col_num += 1;
-                    var cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
+                    const cell_box = quick_select.bodyCell(@src(), cell, highlight_style.cellOptions(cell));
                     defer cell_box.deinit();
 
                     if (dvui.clicked(cell_box.data(), .{})) curr_checked = !curr_checked;
@@ -328,8 +497,6 @@ pub fn frame() void {
 
                 if (curr_checked != was_checked) b: {
                     if (curr_checked) {
-                        const gpa = dvui.currentWindow().gpa;
-
                         var locomotives = std.ArrayList(Locomotive).initCapacity(gpa, suggestion.locomotives.len) catch break :b;
                         locomotives.items.len = suggestion.locomotives.len;
                         for (suggestion.locomotives) |loco| {
@@ -359,7 +526,6 @@ pub fn frame() void {
                 focused_text.id = id;
             };
 
-            const theme = dvui.themeGet();
             const bold_font = theme.font_body.withWeight(.bold);
             if (dvui.buttonLabelAndIcon(@src(), .{ .button_opts = .{}, .label = "Zug Hinzufügen", .tvg_bytes = dvui.entypo.plus, .icon_first = true }, .{ .expand = .horizontal, .font = bold_font, .style = .highlight })) {
                 const key: TrainKey = .{
@@ -451,7 +617,7 @@ pub fn frame() void {
 
                         dvui.labelNoFmt(@src(), "Von", .{}, label_opts.override(.{ .color_text = text_color }));
                         var choice: usize = @intFromEnum(value.from_direction);
-                        _ = enablableDropdown(@src(), &Direction.category_names.values, &choice, .{ .style = style, .color_text = text_color }, !value.shunting);
+                        _ = enablableDropdown(@src(), &Direction.category_names.values, &choice, .{ .style = style }, !value.shunting);
                         value.from_direction = @enumFromInt(choice);
                     }
 
@@ -463,7 +629,7 @@ pub fn frame() void {
 
                         dvui.labelNoFmt(@src(), "Nach", .{}, label_opts.override(.{ .color_text = text_color }));
                         var choice: usize = @intFromEnum(value.to_direction);
-                        _ = enablableDropdown(@src(), &Direction.category_names.values, &choice, .{ .style = style, .color_text = text_color }, !value.shunting);
+                        _ = enablableDropdown(@src(), &Direction.category_names.values, &choice, .{ .style = style }, !value.shunting);
                         value.to_direction = @enumFromInt(choice);
                     }
 
@@ -625,7 +791,8 @@ pub fn frame() void {
     }
 }
 
-fn scrollCurrentSuggestionInView() void {
+fn updateCurrentVideo(gpa: std.mem.Allocator) void {
+    // Scroll most likely suggestion into view
     if (current_suggestions) |suggestions| if (selected_video) |video| {
         const curr_time = Timestamp.parseSimple(&video) orelse return;
         const curr_clock: Schedule.Clock = .{ .hour = curr_time.hour, .minute = curr_time.minute };
@@ -643,6 +810,41 @@ fn scrollCurrentSuggestionInView() void {
 
         scroll_to_suggestion = min_idx;
     };
+
+    // Scroll current video into view
+    scroll_to_video = true;
+
+    // Load train descriptions
+    current_trains.clearRetainingCapacity();
+    if (current_videos.len > 0) {
+        iter_desc: for (current_videos[selected_index].descs) |desc| {
+            const key: TrainKey = .{
+                .number = desc.number,
+                .type = if (desc.from_direction != .filisur and desc.to_direction != .filisur)
+                    .transit
+                else if (desc.from_direction != .filisur)
+                    .arrival
+                else if (desc.to_direction != .filisur)
+                    .departure
+                else {
+                    std.log.err("Got invalid train description from {}", .{desc});
+                    continue :iter_desc;
+                },
+            };
+            current_trains.put(gpa, key, .{
+                .shunting = desc.shunting,
+                .from_direction = desc.from_direction,
+                .to_direction = desc.to_direction,
+                .locomotives = .fromOwnedSlice(gpa.dupe(Locomotive, desc.locomotives) catch {
+                    std.log.err("Failed to duplicate locomotives of train description", .{});
+                    break :iter_desc;
+                }),
+            }) catch {
+                std.log.err("Failed to allocate train entry", .{});
+                break :iter_desc;
+            };
+        }
+    }
 }
 
 var tmp_buffer: [focused_text.buffer.len]u8 = undefined;
@@ -687,14 +889,19 @@ fn enablableButtonIcon(src: std.builtin.SourceLocation, name: []const u8, tvg_by
     // set label on the button and clear role on icon so they don't duplicate
     const defaults: dvui.Options = .{ .padding = .all(4), .label = .{ .text = name } };
     var bw: dvui.ButtonWidget = undefined;
-    bw.init(src, init_opts, defaults.override(opts).override(.{
+
+    const disabled_text_color: dvui.Color = .average(opts.color(.text), opts.color(.fill));
+    const disabled_opts: dvui.Options = if (enabled) .{} else .{
         .color_fill_hover = opts.color_fill,
         .color_fill_press = opts.color_fill,
-        .color_text_hover = opts.color_text,
-        .color_text_press = opts.color_text,
+        .color_text = disabled_text_color,
+        .color_text_hover = disabled_text_color,
+        .color_text_press = disabled_text_color,
         .ninepatch_hover = opts.ninepatch_fill,
         .ninepatch_press = opts.ninepatch_fill,
-    }));
+    };
+
+    bw.init(src, init_opts, defaults.override(opts).override(disabled_opts));
     if (enabled) {
         bw.processEvents();
     }
@@ -707,8 +914,45 @@ fn enablableButtonIcon(src: std.builtin.SourceLocation, name: []const u8, tvg_by
         name,
         tvg_bytes,
         icon_opts,
-        opts.strip().override(bw.style()).override(.{ .gravity_x = 0.5, .gravity_y = 0.5, .min_size_content = opts.min_size_content, .expand = .ratio, .color_text = opts.color_text, .role = .none }),
+        opts.strip().override(bw.style()).override(.{ .gravity_x = 0.5, .gravity_y = 0.5, .min_size_content = opts.min_size_content, .expand = .ratio, .color_text = opts.color_text, .role = .none }).override(disabled_opts),
     );
+
+    const click = bw.clicked();
+    if (enabled) {
+        bw.drawFocus();
+    }
+    bw.deinit();
+    return enabled and click;
+}
+fn enablableButtonLabelIcon(src: std.builtin.SourceLocation, label: []const u8, tvg_bytes: []const u8, init_opts: dvui.ButtonWidget.InitOptions, icon_opts: dvui.IconRenderOptions, opts: dvui.Options, enabled: bool) bool {
+    // set label on the button and clear role on icon so they don't duplicate
+    const defaults: dvui.Options = .{ .padding = .all(4), .label = .{ .text = label } };
+    var bw: dvui.ButtonWidget = undefined;
+
+    const disabled_text_color: dvui.Color = .average(opts.color(.text), opts.color(.fill));
+    const disabled_opts: dvui.Options = if (enabled) .{} else .{
+        .color_fill_hover = opts.color_fill,
+        .color_fill_press = opts.color_fill,
+        .color_text = disabled_text_color,
+        .color_text_hover = disabled_text_color,
+        .color_text_press = disabled_text_color,
+        .ninepatch_hover = opts.ninepatch_fill,
+        .ninepatch_press = opts.ninepatch_fill,
+    };
+
+    bw.init(src, init_opts, defaults.override(opts).override(disabled_opts));
+    if (enabled) {
+        bw.processEvents();
+    }
+    bw.drawBackground();
+
+    {
+        const outer_hbox = dvui.box(src, .{ .dir = .horizontal }, .{ .expand = .horizontal });
+        defer outer_hbox.deinit();
+
+        dvui.icon(@src(), label, tvg_bytes, icon_opts, opts.strip().override(.{ .gravity_x = 0.0, .gravity_y = 0.5, .color_text = opts.color_text }).override(disabled_opts));
+        dvui.labelNoFmt(@src(), label, .{ .align_x = 0.5, .align_y = 0.5 }, opts.strip().override(.{ .expand = .both }).override(disabled_opts));
+    }
 
     const click = bw.clicked();
     if (enabled) {
@@ -720,11 +964,14 @@ fn enablableButtonIcon(src: std.builtin.SourceLocation, name: []const u8, tvg_by
 
 fn enablableDropdown(src: std.builtin.SourceLocation, entries: []const []const u8, choice: *usize, opts: dvui.Options, enabled: bool) bool {
     var dd: dvui.DropdownWidget = undefined;
+
+    const disabled_text_color: dvui.Color = .average(opts.color(.text), opts.color(.fill));
     dd.init(src, .{ .selected_index = choice.*, .label = entries[choice.*] }, if (enabled) opts else opts.override(.{
         .color_fill_hover = opts.color_fill,
         .color_fill_press = opts.color_fill,
-        .color_text_hover = opts.color_text,
-        .color_text_press = opts.color_text,
+        .color_text = disabled_text_color,
+        .color_text_hover = disabled_text_color,
+        .color_text_press = disabled_text_color,
         .ninepatch_hover = opts.ninepatch_fill,
         .ninepatch_press = opts.ninepatch_fill,
     }));

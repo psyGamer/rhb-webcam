@@ -32,10 +32,45 @@ class Meta {
 
             get_timestamp: () => BigInt(Math.floor(Date.now() / 1000)),
 
-            url_fetch: (ptr, len, userdata) => {
-                const url = utf8decoder.decode(new Uint8Array(this.instance.exports.memory.buffer, ptr, len));
+            url_fetch: (method, url_ptr, url_len, body_ptr, body_len, userdata) => {
+                const url  = utf8decoder.decode(new Uint8Array(this.instance.exports.memory.buffer, url_ptr, url_len));
+                const body = body_ptr ? utf8decoder.decode(new Uint8Array(this.instance.exports.memory.buffer, body_ptr, body_len)) : null;
+
+                let method_str;
+                switch (method) {
+                    case 0:
+                        method_str = "GET";
+                        break;
+                    case 1:
+                        method_str = "HEAD";
+                        break;
+                    case 2:
+                        method_str = "POST";
+                        break;
+                    case 3:
+                        method_str = "PUT";
+                        break;
+                    case 4:
+                        method_str = "DELETE";
+                        break;
+                    case 5:
+                        method_str = "CONNECT";
+                        break;
+                    case 6:
+                        method_str = "OPTIONS";
+                        break;
+                    case 7:
+                        method_str = "TRACE";
+                        break;
+                    case 8:
+                        method_str = "PATCH";
+                        break;
+                }
                 
-                fetch(url).then(async (response) => {
+                fetch(url, {
+                    method: method_str,
+                    body: body,
+                }).then(async (response) => {
                     const blob = await response.blob();
                     const bytes = new Uint8Array(await blob.arrayBuffer());
 
