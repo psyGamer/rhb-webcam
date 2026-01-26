@@ -4,8 +4,9 @@
     .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .dvui = .{
-            .url = "git+https://github.com/david-vanderson/dvui?ref=main#99635ec12eae5e698b975fa10b5eed7b1a48c8ed",
-            .hash = "dvui-0.4.0-dev-AQFJmRHz2QDFAN25xKzwydhJXB0l_TmWZkuofvKmrJkU",
+            // .url = "git+https://github.com/david-vanderson/dvui?ref=main#99635ec12eae5e698b975fa10b5eed7b1a48c8ed",
+            // .hash = "dvui-0.4.0-dev-AQFJmRHz2QDFAN25xKzwydhJXB0l_TmWZkuofvKmrJkU",
+            .path = "../dvui",
         },
         .tokamak = .{
             .url = "git+https://github.com/cztomsik/tokamak?ref=main#a25b84dab9a0557f9496263529b08b574ac6b0e6",
@@ -18,6 +19,10 @@
         .zeit = .{
             .url = "git+https://github.com/rockorager/zeit?ref=main#7ac64d72dbfb1a4ad549102e7d4e232a687d32d8",
             .hash = "zeit-0.6.0-5I6bk36tAgATpSl9wjFmRPMqYN2Mn0JQHgIcRNcqDpJA",
+        },
+        .fridge = .{
+            .url = "git+https://github.com/cztomsik/fridge.git#d2b20b912a6b001eef6607848cd722e44e0900a6",
+            .hash = "fridge-0.9.5-3GyIigC7AQDCgjNxJiKbpqLPZvF1LTAKK28B7dE-NsbL",
         },
     },
     .paths = .{

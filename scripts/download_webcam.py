@@ -402,9 +402,10 @@ class SnippetCollection:
 
         process = subprocess.Popen([
             "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-fflags", "+genpts",
             "-f", "concat", "-safe", "0",
             "-i", filelist,
-            "-c:v", "copy", self.target_file
+            "-movflags", "+faststart", "-c:v", "copy", self.target_file
         ])
 
         print(f" => {self.target_file}  ({len(self.pending_flush)} segments)")

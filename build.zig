@@ -114,6 +114,7 @@ fn compileAdminFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_l
 fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, use_llvm: bool) struct { *std.Build.Step, *std.Build.Step.Compile } {
     const tokamak_dep = b.dependency("tokamak", .{ .target = target, .optimize = optimize });
     const httpz_dep = tokamak_dep.builder.dependency("httpz", .{ .target = target, .optimize = optimize });
+    const fridge_dep = b.dependency("fridge", .{ .target = target, .optimize = optimize });
     const dotenv_dep = b.dependency("dotenv", .{ .target = target, .optimize = optimize });
     const zeit_dep = b.dependency("zeit", .{ .target = target, .optimize = optimize });
 
@@ -132,8 +133,9 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
         .root_source_file = b.path("backend/main.zig"),
         .imports = &.{
             .{ .name = "common", .module = common_module },
-            .{ .name = "tokamak", .module = tokamak_dep.module("tokamak") },
             .{ .name = "httpz", .module = httpz_dep.module("httpz") },
+            .{ .name = "tokamak", .module = tokamak_dep.module("tokamak") },
+            .{ .name = "fridge", .module = fridge_dep.module("fridge") },
             .{ .name = "dotenv", .module = dotenv_dep.module("dotenv") },
             .{ .name = "zeit", .module = zeit_dep.module("zeit") },
         },

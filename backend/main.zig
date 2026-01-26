@@ -3,7 +3,10 @@ const builtin = @import("builtin");
 const runtime_safety = builtin.mode == .Debug or builtin.mode == .ReleaseSafe;
 
 const tk = @import("tokamak");
+const fr = @import("fridge");
 const dotenv = @import("dotenv");
+
+const db = @import("database.zig");
 
 const assetDirectory = @import("static.zig").assetDirectory;
 const staticFile = @import("static.zig").staticFile;
@@ -27,7 +30,7 @@ const routes: []const tk.Route = &.{
 
     // Admin
     requireAuth(.{ .realm = "Admin", .validate = validateAdminLogin }, &.{.group("/admin", &.{
-        // DVUI views
+        // DVUI views (all point to index.html, due to client-side routing)
         .get("/categorize", staticFile(admin_dist_dir ++ "index.html")),
         // DVUI assets
         .get("/web.wasm", staticFile(admin_dist_dir ++ "web.wasm")),
@@ -35,7 +38,9 @@ const routes: []const tk.Route = &.{
         .get("/video.js", staticFile(admin_dist_dir ++ "video.js")),
         .get("/meta.js", staticFile(admin_dist_dir ++ "meta.js")),
         // API
-        .group("/api", @import("categorize.zig").routes),
+        .provide(db.Pool.getSession, &.{
+            .group("/api", @import("categorize.zig").routes),
+        }),
     })}),
 };
 
@@ -59,8 +64,11 @@ pub const Env = dotenv.Env(enum {
     LOCOMOTIVE_ALLOCATIONS_STORAGE,
 
     /// File containing all valid credentials for logging into the categorizaion view
-    /// Each line has the format 'username<TAB>password'
     ADMIN_CREDENTIALS_PATH,
+
+    /// File storing the website database
+    DATABASE_DEV_PATH,
+    DATABASE_PROD_PATH,
 });
 
 /// Collection of parsed train schedules
@@ -117,6 +125,15 @@ pub const TrainAllocationPool = struct {
         std.log.info("Parsed locomotive allocations for {f}", .{date});
         return pool.allocations[pool.curr_idx];
     }
+
+    pub fn deinit(pool: TrainAllocationPool, gpa: std.mem.Allocator) void {
+        for (pool.allocations) |allocations| {
+            for (allocations) |train| {
+                train.deinit(gpa);
+            }
+            gpa.free(allocations);
+        }
+    }
 };
 
 /// Military-grade secure credential storage pool
@@ -127,6 +144,8 @@ pub fn main() !void {
     defer if (runtime_safety) std.debug.assert(debug_allocator.deinit() == .ok);
 
     const allocator = if (runtime_safety) debug_allocator.allocator() else std.heap.smp_allocator;
+
+    const should_free = runtime_safety; // The OS will clean up anyway
 
     // Load .env
     var env: Env = .init(allocator, false);
@@ -141,11 +160,22 @@ pub fn main() !void {
 
         break :b try Schedule.load(schedule_dir, allocator);
     };
+    defer if (should_free) {
+        for (schedules) |schedule| {
+            for (schedule.trains) |train| {
+                train.deinit(allocator);
+            }
+            allocator.free(schedule.trains);
+        }
+        allocator.free(schedules);
+    };
+
     // Prepare train allocation pool
     var pool: TrainAllocationPool = .init;
+    defer if (should_free) pool.deinit(allocator);
 
     // Load 'categorize' credentials
-    const cred_storage = b: {
+    var cred_storage, const cred_data = b: {
         const cred_file = try std.fs.cwd().openFile(env.key(.ADMIN_CREDENTIALS_PATH), .{});
         defer cred_file.close();
 
@@ -163,8 +193,17 @@ pub fn main() !void {
             try storage.put(allocator, username, password);
         }
 
-        break :b storage;
+        break :b .{ storage, data };
     };
+    defer if (should_free) {
+        cred_storage.deinit(allocator);
+        allocator.free(cred_data);
+    };
+
+    // Load database
+    var db_pool: db.Pool = undefined;
+    try db.load(&db_pool, allocator, &env);
+    defer db_pool.deinit();
 
     const server_routes = if (builtin.mode == .Debug) &.{tk.logger(.{}, routes)} else routes;
 
