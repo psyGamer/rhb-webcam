@@ -762,7 +762,7 @@ pub fn frame() void {
 
         const curr_time = Timestamp.parseSimpleTime(&(selected_video orelse break)) orelse break;
         const curr_clock: Schedule.Clock = .{ .hour = curr_time.hour, .minute = curr_time.minute };
-        const curr_hour = if (curr_time.minute < 30) curr_time.hour else (curr_time.hour + 1) % 24;
+        const curr_hour: u32 = if (curr_time.minute < 30) curr_time.hour else (curr_time.hour + 1) % 24;
 
         const train_number: u32 = switch (ke.code) {
             // St. Moritz -> Chur
@@ -809,6 +809,8 @@ pub fn frame() void {
             }) catch {
                 std.log.err("Failed to allocate train entry", .{});
             };
+
+            fetchTrainInfo(key.number);
         }
 
         ev.handled = true;

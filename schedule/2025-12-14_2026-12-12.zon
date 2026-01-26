@@ -373,7 +373,7 @@
 
     // R 1 (Morgens) - Richtung Filisur
     .{
-        .number = 7801,
+        .number = 4809,
         .transit_time = "06:30",
         .applicable_weekdays = "123456",
         .information = .{
@@ -384,7 +384,7 @@
     },
     // R 1 - Richtung Filisur
     .{
-        .number = 7805,
+        .number = 4815,
         .transit_time = "07:56",
         .information = .{
             .classifier = "R 1",
@@ -393,7 +393,7 @@
         },
     },
     .{
-        .number = 7809,
+        .number = 4819,
         .transit_time = "08:56",
         .information = .{
             .classifier = "R 1",
@@ -402,7 +402,7 @@
         },
     },
     .{
-        .number = 7813,
+        .number = 4823,
         .transit_time = "09:56",
         .information = .{
             .classifier = "R 1",
@@ -411,7 +411,7 @@
         },
     },
     .{
-        .number = 7817,
+        .number = 4827,
         .transit_time = "10:56",
         .information = .{
             .classifier = "R 1",
@@ -420,7 +420,7 @@
         },
     },
     .{
-        .number = 7821,
+        .number = 4831,
         .transit_time = "11:56",
         .information = .{
             .classifier = "R 1",
@@ -429,7 +429,7 @@
         },
     },
     .{
-        .number = 7825,
+        .number = 4835,
         .transit_time = "12:56",
         .information = .{
             .classifier = "R 1",
@@ -438,7 +438,7 @@
         },
     },
     .{
-        .number = 7829,
+        .number = 4839,
         .transit_time = "13:56",
         .information = .{
             .classifier = "R 1",
@@ -447,7 +447,7 @@
         },
     },
     .{
-        .number = 7833,
+        .number = 4843,
         .transit_time = "14:56",
         .information = .{
             .classifier = "R 1",
@@ -456,7 +456,7 @@
         },
     },
     .{
-        .number = 7837,
+        .number = 4847,
         .transit_time = "15:56",
         .information = .{
             .classifier = "R 1",
@@ -465,7 +465,7 @@
         },
     },
     .{
-        .number = 7841,
+        .number = 4851,
         .transit_time = "16:56",
         .information = .{
             .classifier = "R 1",
@@ -474,7 +474,7 @@
         },
     },
     .{
-        .number = 7845,
+        .number = 4855,
         .transit_time = "17:56",
         .information = .{
             .classifier = "R 1",
@@ -483,7 +483,7 @@
         },
     },
     .{
-        .number = 7849,
+        .number = 4859,
         .transit_time = "18:56",
         .information = .{
             .classifier = "R 1",
@@ -492,7 +492,7 @@
         },
     },
     .{
-        .number = 7853,
+        .number = 4863,
         .transit_time = "19:56",
         .information = .{
             .classifier = "R 1",
@@ -501,7 +501,7 @@
         },
     },
     .{
-        .number = 7857,
+        .number = 4867,
         .transit_time = "20:56",
         .information = .{
             .classifier = "R 1",
@@ -513,7 +513,7 @@
 
     // R 1 (Morgens) - Richtung Davos Platz
     .{
-        .number = 7804,
+        .number = 4816,
         .transit_time = "06:34",
         .applicable_weekdays = "123456",
         .information = .{
@@ -524,7 +524,7 @@
     },
     // R 1 - Richtung Davos Platz
     .{
-        .number = 7808,
+        .number = 4822,
         .transit_time = "08:04",
         .information = .{
             .classifier = "R 1",
@@ -533,7 +533,7 @@
         },
     },
     .{
-        .number = 7812,
+        .number = 7826,
         .transit_time = "09:04",
         .information = .{
             .classifier = "R 1",
@@ -542,7 +542,7 @@
         },
     },
     .{
-        .number = 7816,
+        .number = 4830,
         .transit_time = "10:04",
         .information = .{
             .classifier = "R 1",
@@ -551,7 +551,7 @@
         },
     },
     .{
-        .number = 7820,
+        .number = 4834,
         .transit_time = "11:04",
         .information = .{
             .classifier = "R 1",
@@ -560,7 +560,7 @@
         },
     },
     .{
-        .number = 7824,
+        .number = 4838,
         .transit_time = "12:04",
         .information = .{
             .classifier = "R 1",
@@ -569,7 +569,7 @@
         },
     },
     .{
-        .number = 7828,
+        .number = 4842,
         .transit_time = "13:04",
         .information = .{
             .classifier = "R 1",
@@ -578,7 +578,7 @@
         },
     },
     .{
-        .number = 7832,
+        .number = 4846,
         .transit_time = "14:04",
         .information = .{
             .classifier = "R 1",
@@ -587,7 +587,7 @@
         },
     },
     .{
-        .number = 7836,
+        .number = 4850,
         .transit_time = "15:04",
         .information = .{
             .classifier = "R 1",
@@ -596,7 +596,7 @@
         },
     },
     .{
-        .number = 7840,
+        .number = 4854,
         .transit_time = "16:04",
         .information = .{
             .classifier = "R 1",
@@ -605,7 +605,7 @@
         },
     },
     .{
-        .number = 7844,
+        .number = 4858,
         .transit_time = "17:04",
         .information = .{
             .classifier = "R 1",
@@ -614,7 +614,7 @@
         },
     },
     .{
-        .number = 7848,
+        .number = 4862,
         .transit_time = "18:04",
         .information = .{
             .classifier = "R 1",
@@ -623,7 +623,7 @@
         },
     },
     .{
-        .number = 7852,
+        .number = 4866,
         .transit_time = "19:04",
         .information = .{
             .classifier = "R 1",
@@ -632,7 +632,7 @@
         },
     },
     .{
-        .number = 7856,
+        .number = 4870,
         .transit_time = "20:04",
         .information = .{
             .classifier = "R 1",
@@ -641,7 +641,7 @@
         },
     },
     .{
-        .number = 7860,
+        .number = 4874,
         .transit_time = "21:04",
         .information = .{
             .classifier = "R 1",
