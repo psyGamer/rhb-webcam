@@ -7,7 +7,7 @@ const Direction = @import("direction.zig").Direction;
 const Train = Schedule.Train;
 const Clock = Schedule.Clock;
 
-pub const CategorizeFileEntry = struct { path: [Timestamp.fmt.len]u8, descs: []const TrainDescription };
+pub const CategorizeFileEntry = struct { path: [Timestamp.time_fmt.len]u8, descs: []const TrainDescription };
 pub const CategorizeFileList = []CategorizeFileEntry;
 
 /// Suggestion for a specific train on a desired day

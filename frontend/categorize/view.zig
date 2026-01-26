@@ -26,7 +26,7 @@ const TrainInfo = struct {
     locomotives: std.ArrayList(Locomotive) = .empty,
 };
 
-var selected_video: ?[Timestamp.fmt.len]u8 = undefined;
+var selected_video: ?[Timestamp.time_fmt.len]u8 = undefined;
 var selected_day: time.Date = undefined;
 var selected_index: usize = 0;
 
@@ -63,8 +63,8 @@ pub fn init(query: []const u8) void {
         const key = query_arg[0..equal];
         const value = query_arg[(equal + 1)..];
 
-        if (std.mem.eql(u8, key, "video") and value.len == Timestamp.fmt.len) {
-            selected_video = value[0..Timestamp.fmt.len].*;
+        if (std.mem.eql(u8, key, "video") and value.len == Timestamp.time_fmt.len) {
+            selected_video = value[0..Timestamp.time_fmt.len].*;
         } else if (std.mem.eql(u8, key, "day")) {
             selected_day = time.Date.parse(value) catch continue;
         }
@@ -188,72 +188,6 @@ pub fn frame() void {
         return;
     }
 
-    // Map keys 1-4 onto Albulas for efficency
-    for (dvui.events()) |*ev| {
-        if (ev.evt != .key) continue;
-
-        const ke = ev.evt.key;
-        if (ke.action != .down) continue;
-
-        switch (ke.code) {
-            .one, .two, .three, .four => {},
-            else => continue,
-        }
-
-        const curr_time = Timestamp.parseSimple(&(selected_video orelse break)) orelse break;
-        const curr_clock: Schedule.Clock = .{ .hour = curr_time.hour, .minute = curr_time.minute };
-        const curr_hour = if (curr_time.minute < 30) curr_time.hour else (curr_time.hour + 1) % 24;
-
-        const train_number: u32 = switch (ke.code) {
-            // St. Moritz -> Chur
-            .one, .two => 1110 + @as(u32, switch (curr_hour) {
-                6...7 => if (curr_clock.cmp(.{ .hour = 6, .minute = 15 }) == .lt and @intFromEnum(curr_time.weekday()) < @intFromEnum(Timestamp.Weekday.sat))
-                    0
-                else if (curr_time.weekday() == .sun)
-                    6
-                else
-                    4,
-
-                8...21 => 10 + (curr_hour - 8) * 4,
-
-                22 => if (curr_time.weekday() == .fri or curr_time.weekday() == .sat) 66 else break,
-                else => break,
-            }),
-            // Chur -> St. Moritz
-            .three, .four => 1109 + @as(u32, switch (curr_hour) {
-                6 => if (curr_time.weekday() != .sun) 0 else break,
-
-                8...22 => 8 + (curr_hour - 8) * 4,
-
-                23 => if (curr_time.weekday() == .fri or curr_time.weekday() == .sat) 68 else break,
-                else => break,
-            }),
-            else => unreachable,
-        };
-
-        const key: TrainKey = .{
-            .number = train_number,
-            .type = switch (ke.code) {
-                .one, .three => .arrival,
-                .two, .four => .departure,
-                else => unreachable,
-            },
-        };
-        if (!current_trains.orderedRemove(key)) {
-            current_trains.put(dvui.currentWindow().gpa, key, switch (ke.code) {
-                .one => .{ .from_direction = .moritz, .to_direction = .filisur },
-                .two => .{ .from_direction = .filisur, .to_direction = .chur },
-                .three => .{ .from_direction = .chur, .to_direction = .filisur },
-                .four => .{ .from_direction = .filisur, .to_direction = .moritz },
-                else => unreachable,
-            }) catch {
-                std.log.err("Failed to allocate train entry", .{});
-            };
-        }
-
-        ev.handled = true;
-    }
-
     const box = dvui.box(@src(), .{ .dir = .horizontal }, .{ .expand = .both });
     defer box.deinit();
 
@@ -337,7 +271,7 @@ pub fn frame() void {
             }
 
             const enter = check: for (dvui.events()) |*ev| {
-                if (ev.evt != .key) continue;
+                if (ev.evt != .key or ev.handled) continue;
 
                 const ke = ev.evt.key;
                 if (ke.action != .down) continue;
@@ -789,12 +723,78 @@ pub fn frame() void {
             }
         }
     }
+
+    // Map keys 1-4 onto Albulas for efficency
+    for (dvui.events()) |*ev| {
+        if (ev.evt != .key or ev.handled) continue;
+
+        const ke = ev.evt.key;
+        if (ke.action != .down) continue;
+
+        switch (ke.code) {
+            .one, .two, .three, .four => {},
+            else => continue,
+        }
+
+        const curr_time = Timestamp.parseSimpleTime(&(selected_video orelse break)) orelse break;
+        const curr_clock: Schedule.Clock = .{ .hour = curr_time.hour, .minute = curr_time.minute };
+        const curr_hour = if (curr_time.minute < 30) curr_time.hour else (curr_time.hour + 1) % 24;
+
+        const train_number: u32 = switch (ke.code) {
+            // St. Moritz -> Chur
+            .one, .two => 1110 + @as(u32, switch (curr_hour) {
+                6...7 => if (curr_clock.cmp(.{ .hour = 6, .minute = 15 }) == .lt and @intFromEnum(curr_time.weekday()) < @intFromEnum(Timestamp.Weekday.sat))
+                    0
+                else if (curr_time.weekday() == .sun)
+                    6
+                else
+                    4,
+
+                8...21 => 10 + (curr_hour - 8) * 4,
+
+                22 => if (curr_time.weekday() == .fri or curr_time.weekday() == .sat) 66 else break,
+                else => break,
+            }),
+            // Chur -> St. Moritz
+            .three, .four => 1109 + @as(u32, switch (curr_hour) {
+                6 => if (curr_time.weekday() != .sun) 0 else break,
+
+                8...22 => 8 + (curr_hour - 8) * 4,
+
+                23 => if (curr_time.weekday() == .fri or curr_time.weekday() == .sat) 68 else break,
+                else => break,
+            }),
+            else => unreachable,
+        };
+
+        const key: TrainKey = .{
+            .number = train_number,
+            .type = switch (ke.code) {
+                .one, .three => .arrival,
+                .two, .four => .departure,
+                else => unreachable,
+            },
+        };
+        if (!current_trains.orderedRemove(key)) {
+            current_trains.put(dvui.currentWindow().gpa, key, switch (ke.code) {
+                .one => .{ .from_direction = .moritz, .to_direction = .filisur },
+                .two => .{ .from_direction = .filisur, .to_direction = .chur },
+                .three => .{ .from_direction = .chur, .to_direction = .filisur },
+                .four => .{ .from_direction = .filisur, .to_direction = .moritz },
+                else => unreachable,
+            }) catch {
+                std.log.err("Failed to allocate train entry", .{});
+            };
+        }
+
+        ev.handled = true;
+    }
 }
 
 fn updateCurrentVideo(gpa: std.mem.Allocator) void {
     // Scroll most likely suggestion into view
     if (current_suggestions) |suggestions| if (selected_video) |video| {
-        const curr_time = Timestamp.parseSimple(&video) orelse return;
+        const curr_time = Timestamp.parseSimpleTime(&video) orelse return;
         const curr_clock: Schedule.Clock = .{ .hour = curr_time.hour, .minute = curr_time.minute };
 
         var min_dist: u32 = std.math.maxInt(i32);

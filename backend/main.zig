@@ -207,7 +207,7 @@ pub fn main() !void {
 
     const server_routes = if (builtin.mode == .Debug) &.{tk.logger(.{}, routes)} else routes;
 
-    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage) }, null);
+    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool) }, null);
     var server: tk.Server = try .init(allocator, server_routes, .{
         .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
         .injector = &injector,

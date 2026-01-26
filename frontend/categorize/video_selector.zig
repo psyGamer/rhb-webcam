@@ -51,7 +51,7 @@ const banner_height = 70.0;
 
 const State = enum { none, categorized, selected };
 pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: State, rect: *dvui.Rect, opts: dvui.Options) bool {
-    const ts = Timestamp.parseSimple(source) orelse return false;
+    const ts = Timestamp.parseSimpleTime(source) orelse return false;
 
     const max_border: f32 = 10.0;
 

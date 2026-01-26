@@ -13,34 +13,65 @@ pub const Pool = fr.Pool(fr.SQLite3);
 pub const Train = struct {
     pub const sql_table_name = "trains";
 
-    id: u32,
+    id: usize,
 
     number: u32,
     file: []const u8,
 
-    from: Direction,
-    to: Direction,
+    from_direction: ?[]const u8,
+    to_direction: ?[]const u8,
 };
 pub const Locomotive = struct {
     pub const sql_table_name = "locomotives";
 
-    id: u32,
-    train_id: u32,
+    train_id: usize,
 
     number: u32,
-    category: @import("common").Locomotive.Category,
+    category: []const u8,
 
     position: u32,
     towed: bool,
 };
+
+pub const struct_sqlite3 = opaque {};
+pub const sqlite3 = struct_sqlite3;
+pub extern fn sqlite3_open_v2(filename: [*c]const u8, ppDb: [*c]?*sqlite3, flags: c_int, zVfs: [*c]const u8) c_int;
 
 /// Load the appropriate database from disk
 pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
     const filepath = try allocator.dupeZ(u8, env.key(if (builtin.mode == .Debug) .DATABASE_DEV_PATH else .DATABASE_PROD_PATH));
     defer allocator.free(filepath);
 
-    pool.* = try .init(allocator, .{}, .{ .filename = filepath });
+    const SQLITE_OPEN_READWRITE: c_int = 0x00000002;
+    const SQLITE_OPEN_CREATE: c_int = 0x00000004;
+    const SQLITE_OPEN_NOMUTEX: c_int = 0x00008000;
+    const SQLITE_OPEN_EXRESCODE: c_int = 0x02000000;
+
+    const conn_opts: fr.SQLite3.Options = .{
+        .filename = filepath,
+        .flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_EXRESCODE,
+    };
+    const pool_opts: fr.PoolOptions = .{};
+
+    pool.* = try .init(allocator, pool_opts, conn_opts);
     errdefer pool.deinit();
+
+    // Setup all pooled connections
+    // Creating them on-demand only causes issues
+    var conns: [pool_opts.max_count]fr.Connection = undefined;
+    for (&conns) |*conn| {
+        conn.* = try pool.getConnection();
+
+        // Properly configure connection
+        try conn.execAll(
+            \\PRAGMA journal_mode = WAL;
+            \\PRAGMA synchronous = NORMAL;
+        );
+    }
+    // Release back into pool for later usage
+    for (conns) |conn| {
+        conn.deinit();
+    }
 
     var db = try pool.getSession(allocator);
     defer db.deinit();
@@ -64,24 +95,24 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
 
     try db.exec(std.fmt.comptimePrint(
         \\CREATE TABLE IF NOT EXISTS {s}(
-        \\    'id' INTEGER PRIMARY KEY,
+        \\    id INTEGER PRIMARY KEY,
         \\
-        \\    'number' INTEGER NOT NULL,
-        \\    'file'   VARCHAR({d}) NOT NULL,
+        \\    number INTEGER NOT NULL,
+        \\    file   VARCHAR({d}) NOT NULL,
         \\
-        \\    'from' VARCHAR({d}) NOT NULL CHECK('from' IN ({s})),
-        \\    'to'   VARCHAR({d}) NOT NULL CHECK('to'   IN ({s}))
+        \\    from_direction VARCHAR({d}) CHECK(from_direction IN ({s})),
+        \\    to_direction   VARCHAR({d}) CHECK(to_direction   IN ({s}))
         \\);
-    , .{ Train.sql_table_name, Timestamp.fmt.len, max_dir_name, all_dirs, max_dir_name, all_dirs }), .{});
+    , .{ Train.sql_table_name, Timestamp.time_fmt.len, max_dir_name, all_dirs, max_dir_name, all_dirs }), .{});
     try db.exec(std.fmt.comptimePrint(
         \\CREATE TABLE IF NOT EXISTS {s}(
-        \\    'train_id' INTEGER NOT NULL,
+        \\    train_id INTEGER NOT NULL,
         \\
-        \\    'number'   INTEGER NOT NULL DEFAULT 0,
-        \\    'category' TEXT NOT NULL,
+        \\    number   INTEGER NOT NULL DEFAULT 0,
+        \\    category TEXT NOT NULL,
         \\
-        \\    'position' INTEGER NOT NULL DEFAULT 0,
-        \\    'towed'    BOOLEAN NOT NULL DEFAULT 0,
+        \\    position INTEGER NOT NULL DEFAULT 0,
+        \\    towed    BOOLEAN NOT NULL DEFAULT 0,
         \\
         \\    FOREIGN KEY(train_id) REFERENCES {s}(id) ON DELETE CASCADE
         \\);

@@ -23,7 +23,9 @@ second: u6 = 0, // 0-60
 offset: i32 = 0, // offset from UTC in seconds
 
 /// Simple human readable and alphabetically sortable timestamp format
-pub const fmt: []const u8 = "YYYY-MM-DD_hh-mm-ss";
+pub const time_fmt: []const u8 = "YYYY-MM-DD_hh-mm-ss";
+/// Simple human readable and alphabetically sortable date format
+pub const date_fmt: []const u8 = "YYYY-MM-DD";
 
 /// Creates a UTC Instant for this time
 pub fn instant(self: Timestamp) zeit.Instant {
@@ -84,10 +86,10 @@ pub fn eql(self: Timestamp, time: Timestamp) bool {
 }
 
 /// Validate that the input string matches the expected "simple timestamp" format
-pub fn isValidSimple(str: []const u8) bool {
-    if (str.len != fmt.len) return false;
+pub fn isValidSimpleTime(str: []const u8) bool {
+    if (str.len != time_fmt.len) return false;
 
-    inline for (fmt, 0..) |fmt_char, fmt_idx| {
+    inline for (time_fmt, 0..) |fmt_char, fmt_idx| {
         if (fmt_char == '-') {
             if (str[fmt_idx] != '-') return false;
         } else if (fmt_char == '_') {
@@ -99,18 +101,32 @@ pub fn isValidSimple(str: []const u8) bool {
 
     return true;
 }
+/// Validate that the input string matches the expected "simple timestamp" format
+pub fn isValidSimpleDate(str: []const u8) bool {
+    if (str.len != date_fmt.len) return false;
+
+    inline for (date_fmt, 0..) |fmt_char, fmt_idx| {
+        if (fmt_char == '-') {
+            if (str[fmt_idx] != '-') return false;
+        } else {
+            if (str[fmt_idx] < '0' or str[fmt_idx] > '9') return false;
+        }
+    }
+
+    return true;
+}
 
 /// Attempts to parse the input string from the "simple timestamp" format
-pub fn parseSimple(str: []const u8) ?Timestamp {
-    if (str.len != fmt.len) return null;
+pub fn parseSimpleTime(str: []const u8) ?Timestamp {
+    if (str.len != time_fmt.len) return null;
 
     var curr_num: u16 = 0;
     var result: Timestamp = undefined;
-    inline for (fmt, 0..) |fmt_char, fmt_idx| {
+    inline for (time_fmt, 0..) |fmt_char, fmt_idx| {
         if (fmt_char == '-') {
             if (str[fmt_idx] != '-') return null;
 
-            switch (fmt[fmt_idx - 1]) {
+            switch (time_fmt[fmt_idx - 1]) {
                 'Y' => result.year = curr_num,
                 'M' => result.month = @enumFromInt(curr_num),
                 'h' => result.hour = @intCast(curr_num),

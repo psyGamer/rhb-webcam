@@ -1,12 +1,18 @@
 const std = @import("std");
 const tk = @import("tokamak");
+const fr = @import("fridge");
 
 const Env = @import("main.zig").Env;
 const Schedules = @import("main.zig").Schedules;
 const TrainAllocationPool = @import("main.zig").TrainAllocationPool;
 
+const DatabaseTrain = @import("database.zig").Train;
+const DatabaseLocomotive = @import("database.zig").Locomotive;
+
 const Timestamp = @import("common").Timestamp;
+const Direction = @import("common").Direction;
 const Train = @import("common").Schedule.Train;
+const Locomotive = @import("common").Locomotive;
 
 const api = @import("common").api;
 const Suggestion = api.Suggestion;
@@ -19,97 +25,71 @@ pub const routes: []const tk.Route = &.{
     .delete("/delete?", handleDelete),
 };
 
-fn handleFileList(arena: std.mem.Allocator, env: *Env, query: struct { day: tk.time.Date, includeCategorized: bool = false }) !api.CategorizeFileList {
-    _ = query; // autofix
-    _ = env; // autofix
-    const videos: []const [Timestamp.fmt.len]u8 = &.{
-        "2026-01-10_09-25-34".*,
-        "2026-01-10_09-27-59".*,
-        "2026-01-10_09-29-33".*,
-        "2026-01-10_09-30-44".*,
-        "2026-01-10_09-33-01".*,
-        "2026-01-10_09-58-25".*,
-        "2026-01-10_10-00-15".*,
-        "2026-01-10_10-01-34".*,
-        "2026-01-10_10-57-57".*,
-        "2026-01-10_10-59-20".*,
-        "2026-01-10_11-00-21".*,
-        "2026-01-10_11-01-23".*,
-        "2026-01-10_11-58-08".*,
-        "2026-01-10_12-01-39".*,
-        "2026-01-10_12-02-56".*,
-        "2026-01-10_12-04-07".*,
-        "2026-01-10_12-26-51".*,
-        "2026-01-10_12-27-47".*,
-        "2026-01-10_12-50-20".*,
-        "2026-01-10_13-00-24".*,
-        "2026-01-10_13-01-49".*,
-        "2026-01-10_13-02-37".*,
-        "2026-01-10_13-03-37".*,
-        "2026-01-10_13-42-42".*,
-    };
-    _ = videos; // autofix
-    const videos2: []const [Timestamp.fmt.len]u8 = &.{
-        "2026-01-25_06-20-28".*,
-        "2026-01-25_06-52-49".*,
-        "2026-01-25_06-53-59".*,
-        "2026-01-25_07-30-53".*,
-        "2026-01-25_07-58-05".*,
-        "2026-01-25_08-00-31".*,
-        "2026-01-25_08-01-45".*,
-        "2026-01-25_08-58-10".*,
-        "2026-01-25_08-59-14".*,
-        "2026-01-25_09-00-25".*,
-        "2026-01-25_09-22-18".*,
-        "2026-01-25_09-30-49".*,
-        "2026-01-25_09-32-21".*,
-        "2026-01-25_09-33-50".*,
-        "2026-01-25_09-59-11".*,
-        "2026-01-25_10-02-27".*,
-        "2026-01-25_10-04-07".*,
-        "2026-01-25_10-59-44".*,
-        "2026-01-25_11-01-54".*,
-        "2026-01-25_11-04-53".*,
-        "2026-01-25_11-06-10".*,
-        "2026-01-25_11-59-37".*,
-        "2026-01-25_12-00-55".*,
-        "2026-01-25_12-31-14".*,
-        "2026-01-25_12-58-54".*,
-        "2026-01-25_13-01-53".*,
-        "2026-01-25_13-24-08".*,
-        "2026-01-25_13-58-11".*,
-        "2026-01-25_13-59-14".*,
-        "2026-01-25_14-01-03".*,
-        "2026-01-25_14-58-21".*,
-        "2026-01-25_15-00-10".*,
-        "2026-01-25_15-01-34".*,
-        "2026-01-25_15-16-38".*,
-        "2026-01-25_15-48-49".*,
-        "2026-01-25_16-00-08".*,
-        "2026-01-25_16-02-19".*,
-        "2026-01-25_16-04-15".*,
-        "2026-01-25_16-59-24".*,
-        "2026-01-25_17-01-32".*,
-        "2026-01-25_17-27-15".*,
-        "2026-01-25_17-28-43".*,
-        "2026-01-25_17-51-50".*,
-        "2026-01-25_18-02-14".*,
-        "2026-01-25_18-03-45".*,
-        "2026-01-25_18-29-59".*,
-        "2026-01-25_18-31-48".*,
-        "2026-01-25_18-58-22".*,
-        "2026-01-25_19-01-15".*,
-        "2026-01-25_19-02-37".*,
-    };
+fn handleFileList(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: struct { day: []const u8, includeCategorized: bool = false }) !api.CategorizeFileList {
+    if (!Timestamp.isValidSimpleDate(query.day)) return error.BadRequest;
 
-    const entries = try arena.alloc(api.CategorizeFileEntry, videos2.len);
-    for (videos2, entries) |video, *entry| {
-        entry.* = .{ .path = video, .descs = &.{} };
+    const dir_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), query.day });
+    var day_dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
+    defer day_dir.close();
+
+    var entries: std.ArrayList(api.CategorizeFileEntry) = .empty;
+
+    var file_iter = day_dir.iterate();
+    while (try file_iter.next()) |entry| {
+        if (entry.kind != .file) continue;
+
+        if (entry.name.len < Timestamp.time_fmt.len) continue;
+        const file = entry.name[0..Timestamp.time_fmt.len];
+        if (!Timestamp.isValidSimpleTime(file)) continue;
+
+        const db_trains = try db.query(DatabaseTrain)
+            .where("file", file)
+            .findAll();
+        const descs = try arena.alloc(api.TrainDescription, db_trains.len);
+
+        for (db_trains, descs) |train, *desc| {
+            const db_locos = try db.query(DatabaseLocomotive)
+                .where("train_id", train.id)
+                .findAll();
+
+            const locos = try arena.alloc(Locomotive, db_locos.len);
+
+            for (db_locos) |loco| {
+                locos[loco.position] = .{
+                    .number = loco.number,
+                    .category = std.meta.stringToEnum(Locomotive.Category, loco.category).?,
+                    .towed = loco.towed,
+                };
+            }
+
+            desc.* = .{
+                .number = train.number,
+
+                .shunting = train.from_direction == null and train.to_direction == null,
+                .from_direction = if (train.from_direction) |from| std.meta.stringToEnum(Direction, from).? else .filisur,
+                .to_direction = if (train.to_direction) |to| std.meta.stringToEnum(Direction, to).? else .filisur,
+
+                .locomotives = locos,
+            };
+        }
+
+        try entries.append(arena, .{ .path = file.*, .descs = descs });
     }
-    return entries;
+
+    std.mem.sort(api.CategorizeFileEntry, entries.items, {}, struct {
+        pub fn lessThan(_: void, lhs: api.CategorizeFileEntry, rhs: api.CategorizeFileEntry) bool {
+            for (lhs.path, rhs.path) |lhs_char, rhs_char| {
+                if (lhs_char < rhs_char) return true;
+                if (lhs_char > rhs_char) return false;
+            }
+            return false;
+        }
+    }.lessThan);
+
+    return entries.items;
 }
 
-fn handleSuggestions(ctx: tk.Context, arena: std.mem.Allocator, schedules: Schedules, pool: *TrainAllocationPool, env: *Env, query: struct { day: tk.time.Date }) !api.SuggestionList {
+fn handleSuggestions(ctx: tk.Context, _: *fr.Session, arena: std.mem.Allocator, schedules: Schedules, pool: *TrainAllocationPool, env: *Env, query: struct { day: tk.time.Date }) !api.SuggestionList {
     const curr_timestamp: Timestamp = .{
         .day = @intCast(query.day.day),
         .month = @enumFromInt(query.day.month),
@@ -209,10 +189,70 @@ fn handleSuggestions(ctx: tk.Context, arena: std.mem.Allocator, schedules: Sched
     return suggestions.items;
 }
 
-fn handleUpdate(query: struct { file: []const u8 }, data: []const api.TrainDescription) void {
-    std.log.info("TODO: /update?=file{s} with {any}", .{ query.file, data });
+fn handleUpdate(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: struct { file: []const u8 }, data: []const api.TrainDescription) !void {
+    if (!Timestamp.isValidSimpleTime(query.file)) return;
+
+    // Validate the path actually exists
+    const day = query.file[0.."YYYY-MM-DD".len];
+
+    const video_extension = ".mp4";
+    var video_name: [Timestamp.time_fmt.len + video_extension.len]u8 = undefined;
+    video_name[0..Timestamp.time_fmt.len].* = query.file[0..Timestamp.time_fmt.len].*;
+    video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
+
+    const video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), day, &video_name });
+    try std.fs.cwd().access(video_path, .{});
+
+    // Validate train descriptions
+    if (data.len == 0) return error.BadRequest;
+    for (data) |desc| {
+        if (desc.from_direction == desc.to_direction and !desc.shunting) return error.BadRequest;
+        var all_towed = true;
+        for (desc.locomotives) |loco| {
+            if (!loco.towed) all_towed = false;
+            if (loco.number == 0 and loco.category != .none) continue;
+            if (loco.number != 0 and Locomotive.getCategory(loco.number) == loco.category) continue;
+            return error.BadRequest;
+        }
+        if (all_towed) return error.BadRequest;
+    }
+
+    // Clear existing trains
+    try db.query(DatabaseTrain)
+        .where("file", query.file)
+        .delete()
+        .exec();
+
+    // Insert new data
+    for (data) |desc| {
+        const train_id = try db.insert(DatabaseTrain, .{
+            .number = desc.number,
+            .file = query.file,
+
+            .from_direction = if (desc.shunting) null else @as([]const u8, @tagName(desc.from_direction)),
+            .to_direction = if (desc.shunting) null else @as([]const u8, @tagName(desc.to_direction)),
+        });
+
+        for (desc.locomotives, 0..) |loco, idx| {
+            try db.query(DatabaseLocomotive)
+                .insert(.{
+                    .train_id = train_id,
+
+                    .number = loco.number,
+                    .category = @tagName(loco.category),
+
+                    .position = @as(u32, @intCast(idx)),
+                    .towed = loco.towed,
+                })
+                .exec();
+        }
+    }
 }
 
-fn handleDelete(query: struct { file: []const u8 }) void {
-    std.log.info("TODO: /delete?=file{s}", .{query.file});
+fn handleDelete(db: *fr.Session, query: struct { file: []const u8 }) !void {
+    // Clear existing trains
+    try db.query(DatabaseTrain)
+        .where("file", query.file)
+        .delete()
+        .exec();
 }
