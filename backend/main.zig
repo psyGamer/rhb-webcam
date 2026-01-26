@@ -119,10 +119,12 @@ pub const TrainAllocationPool = struct {
         gpa.free(pool.allocations[pool.curr_idx]);
 
         defer pool.curr_idx = @intCast(@as(u5, pool.curr_idx + 1) % cache_size);
+
+        std.log.info("Parseing locomotive allocations for {f}...", .{date});
         pool.dates[pool.curr_idx] = date;
         pool.allocations[pool.curr_idx] = try TrainAllocation.load(gpa, file);
-
         std.log.info("Parsed locomotive allocations for {f}", .{date});
+
         return pool.allocations[pool.curr_idx];
     }
 

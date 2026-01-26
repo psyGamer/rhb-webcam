@@ -22,7 +22,7 @@ pub const Suggestion = struct {
     origin: []const u8,
     destination: []const u8,
 
-    locomotives: []const TrainAllocation.Locomotive,
+    locomotives: []const Locomotive,
 };
 pub const SuggestionList = []const Suggestion;
 

@@ -32,6 +32,10 @@ pub const Clock = struct {
     pub fn minuteDiff(self: Clock, other: Clock) i32 {
         return @as(i32, @as(u11, self.hour) * 60 + self.minute) - @as(i32, @as(u11, other.hour) * 60 + other.minute);
     }
+
+    pub fn format(self: Clock, writer: *std.Io.Writer) !void {
+        try writer.print("{d:0>2}:{d:0>2}", .{ self.hour, self.minute });
+    }
 };
 
 const Entry = struct {

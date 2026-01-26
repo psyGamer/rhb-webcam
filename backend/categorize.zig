@@ -20,6 +20,7 @@ const Suggestion = api.Suggestion;
 pub const routes: []const tk.Route = &.{
     .get("/file-list?", handleFileList),
     .get("/suggestions?", handleSuggestions),
+    .get("/train-info?", handleTrainInfo),
 
     .put("/update?", handleUpdate),
     .delete("/delete?", handleDelete),
@@ -89,7 +90,7 @@ fn handleFileList(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: s
     return entries.items;
 }
 
-fn handleSuggestions(ctx: tk.Context, _: *fr.Session, arena: std.mem.Allocator, schedules: Schedules, pool: *TrainAllocationPool, env: *Env, query: struct { day: tk.time.Date }) !api.SuggestionList {
+fn handleSuggestions(ctx: tk.Context, arena: std.mem.Allocator, schedules: Schedules, pool: *TrainAllocationPool, env: *Env, query: struct { day: tk.time.Date }) !api.SuggestionList {
     const curr_timestamp: Timestamp = .{
         .day = @intCast(query.day.day),
         .month = @enumFromInt(query.day.month),
@@ -102,12 +103,7 @@ fn handleSuggestions(ctx: tk.Context, _: *fr.Session, arena: std.mem.Allocator, 
         break s;
     } else return &.{};
 
-    const train_allocations = pool.get(ctx.server.allocator, env, query.day) catch |err| {
-        if (@errorReturnTrace()) |t| {
-            std.debug.dumpStackTrace(t.*);
-        }
-        return err;
-    };
+    const train_allocations = try pool.get(ctx.server.allocator, env, query.day);
 
     var suggestions: std.ArrayList(Suggestion) = try .initCapacity(arena, schedule.trains.len * 2);
 
@@ -187,6 +183,26 @@ fn handleSuggestions(ctx: tk.Context, _: *fr.Session, arena: std.mem.Allocator, 
     }.lessThan);
 
     return suggestions.items;
+}
+
+fn handleTrainInfo(ctx: tk.Context, pool: *TrainAllocationPool, env: *Env, query: struct { day: tk.time.Date, number: u32 }) !?api.TrainDescription {
+    const train_allocations = try pool.get(ctx.server.allocator, env, query.day);
+
+    for (train_allocations) |alloc| {
+        if (alloc.number == query.number) {
+            return .{
+                .number = alloc.number,
+
+                .shunting = false,
+                .from_direction = .filisur,
+                .to_direction = .filisur,
+
+                .locomotives = alloc.locomotives,
+            };
+        }
+    }
+
+    return null;
 }
 
 fn handleUpdate(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: struct { file: []const u8 }, data: []const api.TrainDescription) !void {

@@ -1,14 +1,9 @@
 const std = @import("std");
 const Clock = @import("Schedule.zig").Clock;
+const Locomotive = @import("Locomotive.zig");
+const Direction = @import("direction.zig").Direction;
 
 const TrainAllocation = @This();
-
-pub const Locomotive = struct {
-    number: u32,
-
-    towed: bool,
-    position: u32,
-};
 
 number: u32,
 
@@ -22,8 +17,10 @@ pub fn load(gpa: std.mem.Allocator, json_file: std.fs.File) ![]const TrainAlloca
     const Data = struct {
         trains: []const struct {
             number: []const u8,
+
             departure_time: Clock,
             arrival_time: Clock,
+
             locomotives: []const struct {
                 number: u32,
                 role: ?[]const u8,
@@ -48,21 +45,33 @@ pub fn load(gpa: std.mem.Allocator, json_file: std.fs.File) ![]const TrainAlloca
             gpa.free(alloced_train.locomotives);
         };
 
-        const locomotives = try gpa.alloc(Locomotive, parsed_train.locomotives.len);
+        var locomotives = try gpa.alloc(Locomotive, parsed_train.locomotives.len);
         errdefer gpa.free(locomotives);
 
-        for (parsed_train.locomotives, locomotives) |parsed_loco, *loco| {
-            loco.* = .{
+        for (parsed_train.locomotives) |parsed_loco| {
+            if (parsed_loco.position >= locomotives.len) {
+                std.log.err("Got locomotive {} at position {} for train '{s}', with only {} slots being availabel", .{ parsed_loco.number, parsed_loco.position, parsed_train.number, locomotives.len });
+                gpa.free(locomotives);
+                locomotives = &.{};
+                break;
+            }
+
+            locomotives[parsed_loco.position] = .{
                 .number = parsed_loco.number,
+                .category = Locomotive.getCategory(parsed_loco.number) orelse b: {
+                    std.log.err("Got unknown locomotive {} for train '{s}'", .{ parsed_loco.number, parsed_train.number });
+                    break :b .none;
+                },
                 .towed = if (parsed_loco.role) |role| std.mem.eql(u8, role, "S") else false,
-                .position = parsed_loco.position,
             };
         }
 
         train.* = .{
             .number = std.fmt.parseInt(u32, parsed_train.number, 10) catch std.math.maxInt(u32),
+
             .arrival_time = parsed_train.arrival_time,
             .departure_time = parsed_train.departure_time,
+
             .locomotives = locomotives,
         };
     }

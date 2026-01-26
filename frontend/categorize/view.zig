@@ -431,21 +431,16 @@ pub fn frame() void {
 
                 if (curr_checked != was_checked) b: {
                     if (curr_checked) {
-                        var locomotives = std.ArrayList(Locomotive).initCapacity(gpa, suggestion.locomotives.len) catch break :b;
-                        locomotives.items.len = suggestion.locomotives.len;
-                        for (suggestion.locomotives) |loco| {
-                            locomotives.items[loco.position] = .{
-                                .number = loco.number,
-                                .category = Locomotive.getCategory(loco.number) orelse .none,
-                                .towed = loco.towed,
-                            };
-                        }
-
                         current_trains.put(gpa, key, .{
                             .from_direction = Direction.known_directions.get(suggestion.origin).?,
                             .to_direction = Direction.known_directions.get(suggestion.destination).?,
-                            .locomotives = locomotives,
-                        }) catch locomotives.deinit(gpa);
+                            .locomotives = .fromOwnedSlice(gpa.dupe(Locomotive, suggestion.locomotives) catch {
+                                std.log.err("Failed to allocate locomotives for train entry from suggestions", .{});
+                                break :b;
+                            }),
+                        }) catch {
+                            std.log.err("Failed to allocate train entry from suggestions", .{});
+                        };
                     } else {
                         _ = current_trains.orderedRemove(key);
                     }
@@ -481,17 +476,44 @@ pub fn frame() void {
                 defer train_box.deinit();
 
                 const label_opts: dvui.Options = .{ .font = bold_font, .gravity_y = 0.5 };
+                const opt_suggestion_arrival = if (current_suggestions) |suggestions| for (suggestions.value) |sug| {
+                    if (sug.number == key.number and sug.type == .arrival) break sug;
+                } else null else null;
+                const opt_suggestion_departure = if (current_suggestions) |suggestions| for (suggestions.value) |sug| {
+                    if (sug.number == key.number and sug.type == .departure) break sug;
+                } else null else null;
+                const opt_suggestion_transit = if (current_suggestions) |suggestions| for (suggestions.value) |sug| {
+                    if (sug.number == key.number and sug.type == .transit) break sug;
+                } else null else null;
+
+                const opt_suggestion = opt_suggestion_arrival orelse opt_suggestion_departure orelse opt_suggestion_transit;
 
                 // Information
-                {
+                if (opt_suggestion) |sug| {
                     var hbox = dvui.box(@src(), .{ .dir = .horizontal }, .{ .gravity_x = 0.5 });
                     defer hbox.deinit();
 
-                    dvui.labelNoFmt(@src(), "Güterzug", .{}, label_opts);
-                    dvui.labelNoFmt(@src(), "Samedan", .{}, .{ .gravity_y = 0.5 });
+                    const full_classifier_names: std.StaticStringMap([]const u8) = .initComptime(.{
+                        .{ "R 1", "Regio 1" },
+                        .{ "R 38", "Regio 38" },
+                        .{ "RE 38", "RegioExpress 38" },
+                        .{ "IR 38", "InterRegio 38" },
+                        .{ "GEX", "Glacier Express" },
+                        .{ "BEX", "Bernina Express" },
+                        .{ "G", "Güterzug" },
+                    });
+
+                    dvui.labelNoFmt(@src(), full_classifier_names.get(sug.classifier) orelse "", .{}, label_opts);
+                    dvui.labelNoFmt(@src(), sug.origin, .{}, .{ .gravity_y = 0.5 });
                     dvui.icon(@src(), "nach", dvui.entypo.arrow_right, .{}, .{ .gravity_y = 0.5 });
-                    dvui.labelNoFmt(@src(), "Chur GB", .{}, .{ .gravity_y = 0.5 });
-                    dvui.labelNoFmt(@src(), "(07:12 / 07:14)", .{}, .{ .gravity_y = 0.5 });
+                    dvui.labelNoFmt(@src(), sug.destination, .{}, .{ .gravity_y = 0.5 });
+
+                    if (opt_suggestion_arrival) |sug_arrival| if (opt_suggestion_departure) |sug_departure| {
+                        dvui.label(@src(), "({f} / {f})", .{ sug_arrival.time, sug_departure.time }, .{ .gravity_y = 0.5 });
+                    };
+                    if (opt_suggestion_transit) |sug_transit| {
+                        dvui.label(@src(), "({f})", .{sug_transit.time}, .{ .gravity_y = 0.5 });
+                    }
                 }
 
                 var la_train: dvui.Alignment = .init(@src(), 0);
@@ -515,6 +537,8 @@ pub fn frame() void {
                                 std.fmt.parseInt(u32, number_txt, 10) catch break :input_number
                             else
                                 0;
+
+                            fetchTrainInfo(key.number);
                             needs_reindex = true;
                         }
                     }
@@ -845,6 +869,31 @@ fn updateCurrentVideo(gpa: std.mem.Allocator) void {
             };
         }
     }
+}
+fn fetchTrainInfo(train_number: u32) void {
+    const lifo = dvui.currentWindow().lifo();
+
+    const info_url = std.fmt.allocPrint(lifo, "/admin/api/train-info?day={f}&number={d}", .{ selected_day, train_number }) catch "";
+    defer lifo.free(info_url);
+
+    net.fetchJsonObjectLeaky(?api.TrainDescription, info_url, struct {
+        pub fn callback(opt_desc: net.JsonResultLeaky(?api.TrainDescription), window: *dvui.Window) void {
+            const desc = opt_desc catch return orelse return;
+
+            for (current_trains.keys(), current_trains.values()) |key, *value| {
+                if (key.number != desc.number) continue;
+
+                value.locomotives.clearRetainingCapacity();
+                value.locomotives.appendSlice(window.gpa, desc.locomotives) catch {
+                    std.log.err("Failed to insert locomotives from fetched train desciption", .{});
+                };
+
+                return;
+            }
+        }
+    }.callback) catch {
+        std.log.err("Failed to fetch locomotive information for train", .{});
+    };
 }
 
 var tmp_buffer: [focused_text.buffer.len]u8 = undefined;
