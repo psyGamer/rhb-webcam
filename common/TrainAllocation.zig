@@ -50,7 +50,7 @@ pub fn load(gpa: std.mem.Allocator, json_file: std.fs.File) ![]const TrainAlloca
 
         for (parsed_train.locomotives) |parsed_loco| {
             if (parsed_loco.position >= locomotives.len) {
-                std.log.err("Got locomotive {} at position {} for train '{s}', with only {} slots being availabel", .{ parsed_loco.number, parsed_loco.position, parsed_train.number, locomotives.len });
+                std.log.warn("Got locomotive {} at position {} for train '{s}', with only {} slots being availabel", .{ parsed_loco.number, parsed_loco.position, parsed_train.number, locomotives.len });
                 gpa.free(locomotives);
                 locomotives = &.{};
                 break;
@@ -59,7 +59,7 @@ pub fn load(gpa: std.mem.Allocator, json_file: std.fs.File) ![]const TrainAlloca
             locomotives[parsed_loco.position] = .{
                 .number = parsed_loco.number,
                 .category = Locomotive.getCategory(parsed_loco.number) orelse b: {
-                    std.log.err("Got unknown locomotive {} for train '{s}'", .{ parsed_loco.number, parsed_train.number });
+                    std.log.warn("Got unknown locomotive {} for train '{s}'", .{ parsed_loco.number, parsed_train.number });
                     break :b .none;
                 },
                 .towed = if (parsed_loco.role) |role| std.mem.eql(u8, role, "S") else false,

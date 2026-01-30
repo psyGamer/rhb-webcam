@@ -265,8 +265,24 @@ fn handleUpdate(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: str
     }
 }
 
-fn handleDelete(db: *fr.Session, query: struct { file: []const u8 }) !void {
-    // Clear existing trains
+fn handleDelete(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: struct { file: []const u8 }) !void {
+    if (!Timestamp.isValidSimpleTime(query.file)) return;
+
+    const day = query.file[0.."YYYY-MM-DD".len];
+
+    const video_extension = ".mp4";
+    var video_name: [Timestamp.time_fmt.len + video_extension.len]u8 = undefined;
+    video_name[0..Timestamp.time_fmt.len].* = query.file[0..Timestamp.time_fmt.len].*;
+    video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
+
+    const old_video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), day, &video_name });
+    const new_video_dir = try std.fs.path.join(arena, &.{ env.key(.DELETED_VIDEO_ARCHIVE), day });
+    const new_video_path = try std.fs.path.join(arena, &.{ new_video_dir, &video_name });
+
+    try std.fs.cwd().makePath(new_video_dir);
+    try std.fs.cwd().rename(old_video_path, new_video_path);
+
+    // Clear any stored trains
     try db.query(DatabaseTrain)
         .where("file", query.file)
         .delete()

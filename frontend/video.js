@@ -208,7 +208,7 @@ class ImageViewer {
         dvui.textures.delete(this.textureId);
         dvui.gl.deleteTexture(this.texture);
 
-        this.video.remove();
+        this.image.remove();
     }
 }
 

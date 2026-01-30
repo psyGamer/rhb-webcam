@@ -765,8 +765,7 @@
     },
     .{
         .number = 5140,
-        .arrival_time = "12:26",
-        .departure_time = "12:29",
+        .transit_time = "12:26",
         .information = .{
             .classifier = "G",
             .origin = "Pontresina",
@@ -806,7 +805,8 @@
     // - Richtung St. Moritz -
     .{
         .number = 5113,
-        .transit_time = "08:11",
+        .arrival_time = "08:11",
+        .departure_time = "08:19",
         .information = .{
             .classifier = "G",
             .origin = "Landquart GB",

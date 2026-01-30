@@ -253,6 +253,7 @@ pub fn frame() void {
                     .callafterFn = struct {
                         fn callafter(_: dvui.Id, response: dvui.enums.DialogResponse) !void {
                             if (response == .ok) {
+                                // Delete on server
                                 const lifo_alloc = dvui.currentWindow().lifo();
                                 const delete_path = std.fmt.allocPrint(lifo_alloc, "/admin/api/delete?file={s}", .{&selected_video.?}) catch {
                                     std.log.err("Failed to allocate DELETE url to delete current video", .{});
@@ -261,6 +262,32 @@ pub fn frame() void {
                                 defer lifo_alloc.free(delete_path);
 
                                 net.delete(delete_path, null);
+
+                                // Delete on client
+                                if (dvui.currentWindow().gpa.resize(current_videos, current_videos.len - 1)) {
+                                    @memmove(current_videos[selected_index..(current_videos.len - 1)], current_videos[(selected_index + 1)..]);
+                                    current_videos.len -= 1;
+                                } else {
+                                    const videos = dvui.currentWindow().gpa.alloc(api.CategorizeFileEntry, current_videos.len - 1) catch {
+                                        std.log.err("Failed to shrink allocation after deleting video", .{});
+                                        return;
+                                    };
+
+                                    @memcpy(videos[0..selected_index], current_videos[0..selected_index]);
+                                    @memcpy(videos[selected_index..], current_videos[(selected_index + 1)..]);
+
+                                    dvui.currentWindow().gpa.free(current_videos);
+                                    current_videos = videos;
+                                }
+
+                                selected_index = std.math.clamp(selected_index, 0, current_videos.len - 1);
+                                selected_video = if (current_videos.len > 0) current_videos[selected_index].path else null;
+
+                                // Enable auto-play
+                                playback_config.playing = true;
+                                playback_config.update = true;
+
+                                updateCurrentVideo(dvui.currentWindow().gpa);
                             }
                         }
                     }.callafter,
@@ -328,7 +355,7 @@ pub fn frame() void {
 
                 net.put(put_path, body_writer.written());
             }
-            if (selected_index + 1 < current_videos.len and (next or enter)) {
+            if ((valid or current_trains.count() == 0) and selected_index + 1 < current_videos.len and (next or enter)) {
                 selected_index += 1;
                 selected_video = current_videos[selected_index].path;
 
