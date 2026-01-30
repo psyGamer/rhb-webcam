@@ -133,8 +133,8 @@ fn compileBackend(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
         .root_source_file = b.path("backend/main.zig"),
         .imports = &.{
             .{ .name = "common", .module = common_module },
-            .{ .name = "httpz", .module = httpz_dep.module("httpz") },
             .{ .name = "tokamak", .module = tokamak_dep.module("tokamak") },
+            .{ .name = "httpz", .module = httpz_dep.module("httpz") },
             .{ .name = "fridge", .module = fridge_dep.module("fridge") },
             .{ .name = "dotenv", .module = dotenv_dep.module("dotenv") },
             .{ .name = "zeit", .module = zeit_dep.module("zeit") },

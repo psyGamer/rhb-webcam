@@ -100,7 +100,7 @@ pub const category_ranges: std.EnumArray(Category, Range) = .init(.{
     .Ge_22_1 = .inclusive(161, 162),
     .Ge_33_1 = .inclusive(214, 215),
     .Gmf_44_1 = .inclusive(242, 242),
-    .Geaf_22_1 = .inclusive(20601, 20605),
+    .Geaf_22_1 = .inclusive(20601, 20606),
 
     .Xm_22_1 = .single(9916),
     .Xm_22_2 = .single(9917),

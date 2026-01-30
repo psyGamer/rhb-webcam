@@ -36,6 +36,7 @@ var current_trains: std.AutoArrayHashMapUnmanaged(TrainKey, TrainInfo) = undefin
 
 var scroll_to_suggestion: ?u32 = null;
 var scroll_to_video: bool = false;
+var show_categorized: bool = true;
 
 var focused_text: struct {
     buffer: [64]u8 = undefined,
@@ -199,7 +200,12 @@ pub fn frame() void {
         const selector_box = dvui.box(@src(), .{}, .{ .expand = .vertical });
         defer selector_box.deinit();
 
-        if (videoSelector(@src(), .{ .videos = current_videos, .selected = &selected_index, .scroll_to_current = scroll_to_video }, .{ .background = false })) {
+        if (videoSelector(@src(), .{
+            .videos = current_videos,
+            .selected = &selected_index,
+            .show_categorized = show_categorized,
+            .scroll_to_current = scroll_to_video,
+        }, .{ .background = false })) {
             selected_video = current_videos[selected_index].path;
             // Enable auto-play
             playback_config.playing = true;
@@ -241,6 +247,9 @@ pub fn frame() void {
             } else true;
 
             const opts: dvui.Options = .{ .font = theme.font_body.larger(2).withWeight(.bold), .padding = .all(8), .margin = .rect(8, 4, 8, 4) };
+
+            _ = dvui.checkbox(@src(), &show_categorized, "Kategorisierte anzeigen", opts);
+
             const save = enablableButtonLabelIcon(@src(), "Speichern", dvui.entypo.save, .{}, .{}, opts.override(.{ .style = .highlight }), valid);
             const next = enablableButtonLabelIcon(@src(), "Weiter", dvui.entypo.controller_next, .{}, .{}, opts.override(.{ .style = .highlight }), selected_index + 1 < current_videos.len);
             if (enablableButtonLabelIcon(@src(), "Zuschneiden", dvui.entypo.scissors, .{}, .{}, opts.override(.{}), false)) {

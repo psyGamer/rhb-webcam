@@ -10,6 +10,8 @@ const api = @import("common").api;
 const InitOptions = struct {
     videos: api.CategorizeFileList,
     selected: *usize,
+    show_categorized: bool,
+
     scroll_to_current: bool = false,
 };
 pub fn videoSelector(src: std.builtin.SourceLocation, init_opts: InitOptions, opts: dvui.Options) bool {
@@ -18,6 +20,8 @@ pub fn videoSelector(src: std.builtin.SourceLocation, init_opts: InitOptions, op
 
     var updated = false;
     for (init_opts.videos, 0..) |video, idx| {
+        if (!init_opts.show_categorized and video.descs.len > 0) continue;
+
         const state: State =
             if (idx == init_opts.selected.*)
                 .selected
