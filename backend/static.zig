@@ -18,7 +18,17 @@ const content_types: std.StaticStringMap([]const u8) = .initComptime(.{
     .{ ".mp4", "video/mp4" },
 });
 
-pub fn assetDirectory(comptime path: []const u8) tk.Route {
+pub const CacheOptions = union(enum) {
+    /// File will never-ever be changed
+    immutable: void,
+    /// File will be cached for the given timeout
+    timeout: u64,
+    /// File will never be cached
+    never: void,
+};
+
+/// Serve a static directory from the filesystem
+pub fn assetDirectory(comptime path: []const u8, comptime cache: CacheOptions) tk.Route {
     const H = struct {
         pub fn handleDir(ctx: *tk.Context) anyerror!void {
             // We only support GET for now
@@ -52,8 +62,11 @@ pub fn assetDirectory(comptime path: []const u8) tk.Route {
             };
             defer file.close();
 
-            // Static files are expected to never change
-            ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+            switch (cache) {
+                .immutable => ctx.res.header("Cache-Control", "public, max-age=604800, immutable"),
+                .timeout => |sec| ctx.res.header("Cache-Control", std.fmt.comptimePrint("public, max-age={d}", .{sec})),
+                .never => ctx.res.header("Cache-Control", "no-cache"),
+            }
 
             try sendFile(ctx, file, content_types.get(std.fs.path.extension(target)) orelse "application/octet-stream");
         }
@@ -61,7 +74,8 @@ pub fn assetDirectory(comptime path: []const u8) tk.Route {
 
     return .{ .handler = &H.handleDir };
 }
-pub fn staticFile(comptime path: []const u8) tk.Route {
+/// Serve a static file from the filesystem
+pub fn staticFile(comptime path: []const u8, comptime cache: CacheOptions) tk.Route {
     const H = struct {
         pub fn handleFile(ctx: *tk.Context) anyerror!void {
             const file = std.fs.cwd().openFile(path, .{}) catch |e| return switch (e) {
@@ -70,8 +84,11 @@ pub fn staticFile(comptime path: []const u8) tk.Route {
             };
             defer file.close();
 
-            // Static files are expected to never change
-            ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+            switch (cache) {
+                .immutable => ctx.res.header("Cache-Control", "public, max-age=604800, immutable"),
+                .timeout => |sec| ctx.res.header("Cache-Control", std.fmt.comptimePrint("public, max-age={d}", .{sec})),
+                .never => ctx.res.header("Cache-Control", "no-cache"),
+            }
 
             try sendFile(ctx, file, comptime content_types.get(std.fs.path.extension(path)) orelse "application/octet-stream");
         }

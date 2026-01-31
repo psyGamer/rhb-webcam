@@ -121,7 +121,7 @@ pub fn parseSimpleTime(str: []const u8) ?Timestamp {
     if (str.len != time_fmt.len) return null;
 
     var curr_num: u16 = 0;
-    var result: Timestamp = undefined;
+    var result: Timestamp = .{};
     inline for (time_fmt, 0..) |fmt_char, fmt_idx| {
         if (fmt_char == '-') {
             if (str[fmt_idx] != '-') return null;

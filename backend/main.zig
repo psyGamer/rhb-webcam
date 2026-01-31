@@ -6,24 +6,36 @@ const tk = @import("tokamak");
 const fr = @import("fridge");
 const dotenv = @import("dotenv");
 
-const db = @import("database.zig");
-
-const assetDirectory = @import("static.zig").assetDirectory;
-const staticFile = @import("static.zig").staticFile;
-
 const Schedule = @import("common").Schedule;
 const TrainAllocation = @import("common").TrainAllocation;
 
+const db = @import("database.zig");
+
+const static = @import("static.zig");
+const assetDirectory = static.assetDirectory;
+const staticFile = static.staticFile;
+
 const requireAuth = @import("auth.zig").requireAuth;
+
+const user_view = @import("user_view.zig");
 
 pub const std_options: std.Options = .{
     .logFn = @import("logging.zig").logFn,
     .fmt_max_depth = 10,
 };
 
+const user_dist_dir = "user-dist/";
 const admin_dist_dir = "admin-dist/";
 
 const routes: []const tk.Route = &.{
+    // Views
+    .provide(db.Pool.getSession, &.{
+        .get("/", user_view.latestImage),
+        .get("/view/:path", user_view.archiveImage),
+    }),
+    // Static
+    .get("/style.css", staticFile(user_dist_dir ++ "style.css", .{ .timeout = 3600 })),
+
     // CDN
     .get("/video/:path", @import("video.zig").handler),
     .get("/thumbnail/:path", @import("thumbnail.zig").handler),
@@ -31,12 +43,12 @@ const routes: []const tk.Route = &.{
     // Admin
     requireAuth(.{ .realm = "Admin", .validate = validateAdminLogin }, &.{.group("/admin", &.{
         // DVUI views (all point to index.html, due to client-side routing)
-        .get("/categorize", staticFile(admin_dist_dir ++ "index.html")),
+        .get("/categorize", staticFile(admin_dist_dir ++ "index.html", .{ .timeout = 3600 })),
         // DVUI assets
-        .get("/web.wasm", staticFile(admin_dist_dir ++ "web.wasm")),
-        .get("/web.js", staticFile(admin_dist_dir ++ "web.js")),
-        .get("/video.js", staticFile(admin_dist_dir ++ "video.js")),
-        .get("/meta.js", staticFile(admin_dist_dir ++ "meta.js")),
+        .get("/web.wasm", staticFile(admin_dist_dir ++ "web.wasm", .immutable)),
+        .get("/web.js", staticFile(admin_dist_dir ++ "web.js", .immutable)),
+        .get("/video.js", staticFile(admin_dist_dir ++ "video.js", .immutable)),
+        .get("/meta.js", staticFile(admin_dist_dir ++ "meta.js", .immutable)),
         // API
         .provide(db.Pool.getSession, &.{
             .group("/api", @import("categorize.zig").routes),

@@ -529,17 +529,7 @@ pub fn frame() void {
                     var hbox = dvui.box(@src(), .{ .dir = .horizontal }, .{ .gravity_x = 0.5 });
                     defer hbox.deinit();
 
-                    const full_classifier_names: std.StaticStringMap([]const u8) = .initComptime(.{
-                        .{ "R 1", "Regio 1" },
-                        .{ "R 38", "Regio 38" },
-                        .{ "RE 38", "RegioExpress 38" },
-                        .{ "IR 38", "InterRegio 38" },
-                        .{ "GEX", "Glacier Express" },
-                        .{ "BEX", "Bernina Express" },
-                        .{ "G", "Güterzug" },
-                    });
-
-                    dvui.labelNoFmt(@src(), full_classifier_names.get(sug.classifier) orelse "", .{}, label_opts);
+                    dvui.labelNoFmt(@src(), @import("common").full_train_classifier_names.get(sug.classifier) orelse sug.classifier, .{}, label_opts);
                     dvui.labelNoFmt(@src(), sug.origin, .{}, .{ .gravity_y = 0.5 });
                     dvui.icon(@src(), "nach", dvui.entypo.arrow_right, .{}, .{ .gravity_y = 0.5 });
                     dvui.labelNoFmt(@src(), sug.destination, .{}, .{ .gravity_y = 0.5 });
