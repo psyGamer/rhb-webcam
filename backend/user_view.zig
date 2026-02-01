@@ -46,6 +46,9 @@ pub fn latestImage(ctx: *tk.Context, env: *Env) !void {
 
         // Alphanumeric comparison
         for (file, last_file) |lhs_char, rhs_char| {
+            if (lhs_char < rhs_char) {
+                break;
+            }
             if (lhs_char > rhs_char) {
                 last_file = file.*;
                 break;
