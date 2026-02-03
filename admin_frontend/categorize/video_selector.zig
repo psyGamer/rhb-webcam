@@ -139,20 +139,7 @@ pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: 
 
     content_box.deinit();
 
-    dvui.label(@src(), "{d}. {s} {d} {d:0>2}:{d:0>2}:{d:0>2}", .{ ts.day, switch (ts.month) {
-        .jan => "Januar",
-        .feb => "Februar",
-        .mar => "März",
-        .apr => "April",
-        .may => "Mai",
-        .jun => "Juni",
-        .jul => "Juli",
-        .aug => "August",
-        .sep => "September",
-        .oct => "Oktober",
-        .nov => "November",
-        .dec => "Dezember",
-    }, ts.year, ts.hour, ts.minute, ts.second }, .{ .margin = .all(5), .gravity_x = 0.5, .font = opts.fontGet().withWeight(.bold) });
+    dvui.label(@src(), "{d}. {s} {d} {d:0>2}:{d:0>2}:{d:0>2}", .{ ts.day, ts.monthName(), ts.year, ts.hour, ts.minute, ts.second }, .{ .margin = .all(5), .gravity_x = 0.5, .font = opts.fontGet().withWeight(.bold) });
 
     return click;
 }

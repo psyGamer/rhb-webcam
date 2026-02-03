@@ -85,6 +85,27 @@ pub fn eql(self: Timestamp, time: Timestamp) bool {
     return self_instant.timestamp == time_instant.timestamp;
 }
 
+pub fn monthName(self: Timestamp) []const u8 {
+    return switch (self.month) {
+        .jan => "Januar",
+        .feb => "Februar",
+        .mar => "März",
+        .apr => "April",
+        .may => "Mai",
+        .jun => "Juni",
+        .jul => "Juli",
+        .aug => "August",
+        .sep => "September",
+        .oct => "Oktober",
+        .nov => "November",
+        .dec => "Dezember",
+    };
+}
+
+pub fn format(self: Timestamp, writer: *std.Io.Writer) !void {
+    try writer.print("{d}-{d:0>2}-{d:0>2}_{d:0>2}-{d:0>2}-{d:0>2}", .{ self.year, @intFromEnum(self.month), self.day, self.hour, self.minute, self.second });
+}
+
 /// Validate that the input string matches the expected "simple timestamp" format
 pub fn isValidSimpleTime(str: []const u8) bool {
     if (str.len != time_fmt.len) return false;
@@ -101,7 +122,7 @@ pub fn isValidSimpleTime(str: []const u8) bool {
 
     return true;
 }
-/// Validate that the input string matches the expected "simple timestamp" format
+/// Validate that the input string matches the expected "simple date" format
 pub fn isValidSimpleDate(str: []const u8) bool {
     if (str.len != date_fmt.len) return false;
 
@@ -149,6 +170,17 @@ pub fn parseSimpleTime(str: []const u8) ?Timestamp {
     result.second = @intCast(curr_num);
 
     return result;
+}
+/// Attempts to parse the input string from the "simple date" format
+pub fn parseSimpleDate(str: []const u8) ?Timestamp {
+    if (str.len != date_fmt.len) return null;
+
+    var date_it = std.mem.splitScalar(u8, str, '-');
+    const year = std.fmt.parseInt(u16, date_it.next() orelse return null, 10) catch return null;
+    const month = std.fmt.parseInt(u4, date_it.next() orelse return null, 10) catch return null;
+    const day = std.fmt.parseInt(u5, date_it.next() orelse return null, 10) catch return null;
+
+    return .{ .year = year, .month = @enumFromInt(month), .day = day };
 }
 
 /// Attempts to parse the input ZON node as an ISO8601 timestamp

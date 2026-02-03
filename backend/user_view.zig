@@ -74,7 +74,21 @@ pub fn latestImage(ctx: *tk.Context, env: *Env) !void {
     ctx.responded = true;
 }
 
-pub fn archiveImage(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: Schedules, path: []const u8) !void {
+pub fn archiveFull(ctx: *tk.Context, env: *Env) !void {
+    return archiveOverview(ctx, env, "");
+}
+pub fn archive(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: Schedules, path: []const u8) !void {
+    // Dispatch to image view / archive overview depending on path
+    if (path.len == Timestamp.time_fmt.len) {
+        return archiveImage(ctx, db, env, schedules, path);
+    } else if (path.len <= Timestamp.date_fmt.len) {
+        return archiveOverview(ctx, env, path);
+    }
+
+    return error.NotFound;
+}
+
+fn archiveImage(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: Schedules, path: []const u8) !void {
     // Validate path exists
     const video_time = Timestamp.parseSimpleTime(path) orelse return;
 
@@ -264,6 +278,240 @@ pub fn archiveImage(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: Sch
     }
 
     try user_frontend.imageView(ctx.res.writer(), image_view_opts);
+
+    ctx.res.body = ctx.res.buffer.written();
+    ctx.res.content_type = .HTML;
+    ctx.responded = true;
+}
+
+// For non-cyptographic randomness
+var prng: std.Random.DefaultPrng = .init(0);
+var rand = prng.random();
+
+fn archiveOverview(ctx: *tk.Context, env: *Env, path: []const u8) !void {
+    const today: tk.time.Date = .today();
+
+    var date_it = std.mem.splitScalar(u8, path, '-');
+    var is_done = true;
+
+    switch (path.len) {
+        "YYYY-MM-DD".len => {
+            const year = std.fmt.parseInt(u16, date_it.next() orelse return error.NotFound, 10) catch return error.NotFound;
+            const month = std.fmt.parseInt(u8, date_it.next() orelse return error.NotFound, 10) catch return error.NotFound;
+            const day = std.fmt.parseInt(u8, date_it.next() orelse return error.NotFound, 10) catch return error.NotFound;
+
+            if (today.day == day and today.month == month and today.year == year) {
+                // Still in progress
+                is_done = false;
+            }
+
+            const dir_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), path });
+
+            var dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
+            defer dir.close();
+
+            var elements: std.ArrayList(user_frontend.ArchiveViewOptions.Element) = .empty;
+
+            var entry_iter = dir.iterate();
+            while (try entry_iter.next()) |entry| {
+                if (entry.kind != .file or entry.name.len < Timestamp.time_fmt.len) continue;
+
+                const file_name = entry.name[0..Timestamp.time_fmt.len];
+                const file_time = Timestamp.parseSimpleTime(file_name) orelse continue;
+
+                try elements.append(ctx.allocator, .{
+                    .capture_count = 0, // Indivual images don't have a capture
+                    .preview_image = file_name.*,
+                    .time = file_time,
+                });
+            }
+
+            user_frontend.ArchiveViewOptions.Element.sort(elements.items);
+            try user_frontend.archiveView(ctx.res.writer(), .{
+                .type = .day,
+                .date = .{ .year = year, .month = month, .day = day },
+
+                .elements = elements.items,
+            });
+        },
+        "YYYY-MM".len => {
+            const year = std.fmt.parseInt(u16, date_it.next() orelse return error.NotFound, 10) catch return error.NotFound;
+            const month = std.fmt.parseInt(u8, date_it.next() orelse return error.NotFound, 10) catch return error.NotFound;
+
+            if (today.month == month and today.year == year) {
+                // Still in progress
+                is_done = false;
+            }
+
+            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_VIDEO_ARCHIVE), .{ .iterate = true });
+            defer archive_dir.close();
+
+            var elements: std.ArrayList(user_frontend.ArchiveViewOptions.Element) = .empty;
+            var files: std.ArrayList([Timestamp.time_fmt.len]u8) = .empty;
+
+            var dir_iter = archive_dir.iterate();
+            while (try dir_iter.next()) |dir_entry| {
+                if (dir_entry.kind != .directory or dir_entry.name.len < Timestamp.date_fmt.len) continue;
+
+                const dir_name = dir_entry.name[0..Timestamp.date_fmt.len];
+                const dir_time = Timestamp.parseSimpleDate(dir_name) orelse continue;
+                if (dir_time.year != year or @intFromEnum(dir_time.month) != month) continue;
+
+                var dir = try archive_dir.openDir(dir_name, .{ .iterate = true });
+                defer dir.close();
+
+                var file_iter = dir.iterate();
+                while (try file_iter.next()) |file_entry| {
+                    if (file_entry.kind != .file or file_entry.name.len < Timestamp.time_fmt.len) continue;
+
+                    const file_name = file_entry.name[0..Timestamp.time_fmt.len];
+                    if (!Timestamp.isValidSimpleTime(file_name)) continue;
+
+                    try files.append(ctx.allocator, file_name.*);
+                }
+
+                const preview_file = files.items[rand.uintLessThan(usize, files.items.len)];
+                defer files.clearRetainingCapacity();
+
+                try elements.append(ctx.allocator, .{
+                    .capture_count = @intCast(files.items.len),
+                    .preview_image = preview_file,
+                    .time = dir_time,
+                });
+            }
+
+            user_frontend.ArchiveViewOptions.Element.sort(elements.items);
+            try user_frontend.archiveView(ctx.res.writer(), .{
+                .type = .month,
+                .date = .{ .year = year, .month = month, .day = 0 },
+
+                .elements = elements.items,
+            });
+        },
+        "YYYY".len => {
+            const year = std.fmt.parseInt(u16, date_it.next() orelse return error.NotFound, 10) catch return error.NotFound;
+
+            if (today.year == year) {
+                // Still in progress
+                is_done = false;
+            }
+
+            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_VIDEO_ARCHIVE), .{ .iterate = true });
+            defer archive_dir.close();
+
+            var elements: std.ArrayList(user_frontend.ArchiveViewOptions.Element) = .empty;
+            var files: std.ArrayList([Timestamp.time_fmt.len]u8) = .empty;
+            var month_dirs: std.AutoArrayHashMapUnmanaged(zeit.Month, std.ArrayList([Timestamp.date_fmt.len]u8)) = .empty;
+
+            var dir_iter = archive_dir.iterate();
+            while (try dir_iter.next()) |dir_entry| {
+                if (dir_entry.kind != .directory or dir_entry.name.len < Timestamp.date_fmt.len) continue;
+
+                const dir_name = dir_entry.name[0..Timestamp.date_fmt.len];
+                const dir_time = Timestamp.parseSimpleDate(dir_name) orelse continue;
+                if (dir_time.year != year) continue;
+
+                const gop = try month_dirs.getOrPut(ctx.allocator, dir_time.month);
+                if (!gop.found_existing) {
+                    gop.value_ptr.* = .empty;
+                }
+
+                try gop.value_ptr.append(ctx.allocator, dir_name.*);
+            }
+
+            for (month_dirs.keys(), month_dirs.values()) |month, dirs| {
+                for (dirs.items) |dir_name| {
+                    var dir = try archive_dir.openDir(&dir_name, .{ .iterate = true });
+                    defer dir.close();
+
+                    var file_iter = dir.iterate();
+                    while (try file_iter.next()) |file_entry| {
+                        if (file_entry.kind != .file or file_entry.name.len < Timestamp.time_fmt.len) continue;
+
+                        const file_name = file_entry.name[0..Timestamp.time_fmt.len];
+                        if (!Timestamp.isValidSimpleTime(file_name)) continue;
+
+                        try files.append(ctx.allocator, file_name.*);
+                    }
+                }
+
+                const preview_file = files.items[rand.uintLessThan(usize, files.items.len)];
+                defer files.clearRetainingCapacity();
+
+                try elements.append(ctx.allocator, .{
+                    .capture_count = @intCast(files.items.len),
+                    .preview_image = preview_file,
+                    .time = .{ .year = year, .month = month, .day = 1 },
+                });
+            }
+
+            user_frontend.ArchiveViewOptions.Element.sort(elements.items);
+            try user_frontend.archiveView(ctx.res.writer(), .{
+                .type = .year,
+                .date = .{ .year = year, .month = 0, .day = 0 },
+
+                .elements = elements.items,
+            });
+        },
+        "".len => {
+            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_VIDEO_ARCHIVE), .{ .iterate = true });
+            defer archive_dir.close();
+
+            var elements: std.ArrayList(user_frontend.ArchiveViewOptions.Element) = .empty;
+            var files: std.ArrayList([Timestamp.time_fmt.len]u8) = .empty;
+            var year_dirs: std.AutoArrayHashMapUnmanaged(u16, std.ArrayList([Timestamp.date_fmt.len]u8)) = .empty;
+
+            var dir_iter = archive_dir.iterate();
+            while (try dir_iter.next()) |dir_entry| {
+                if (dir_entry.kind != .directory or dir_entry.name.len < Timestamp.date_fmt.len) continue;
+
+                const dir_name = dir_entry.name[0..Timestamp.date_fmt.len];
+                const dir_time = Timestamp.parseSimpleDate(dir_name) orelse continue;
+
+                const gop = try year_dirs.getOrPut(ctx.allocator, @intCast(dir_time.year));
+                if (!gop.found_existing) {
+                    gop.value_ptr.* = .empty;
+                }
+
+                try gop.value_ptr.append(ctx.allocator, dir_name.*);
+            }
+
+            for (year_dirs.keys(), year_dirs.values()) |year, dirs| {
+                for (dirs.items) |dir_name| {
+                    var dir = try archive_dir.openDir(&dir_name, .{ .iterate = true });
+                    defer dir.close();
+
+                    var file_iter = dir.iterate();
+                    while (try file_iter.next()) |file_entry| {
+                        if (file_entry.kind != .file or file_entry.name.len < Timestamp.time_fmt.len) continue;
+
+                        const file_name = file_entry.name[0..Timestamp.time_fmt.len];
+                        if (!Timestamp.isValidSimpleTime(file_name)) continue;
+
+                        try files.append(ctx.allocator, file_name.*);
+                    }
+                }
+
+                const preview_file = files.items[rand.uintLessThan(usize, files.items.len)];
+                defer files.clearRetainingCapacity();
+
+                try elements.append(ctx.allocator, .{
+                    .capture_count = @intCast(files.items.len),
+                    .preview_image = preview_file,
+                    .time = .{ .year = year, .month = .jan, .day = 1 },
+                });
+            }
+
+            user_frontend.ArchiveViewOptions.Element.sort(elements.items);
+            try user_frontend.archiveView(ctx.res.writer(), .{
+                .type = .full,
+                .date = .{ .year = 0, .month = 0, .day = 0 },
+
+                .elements = elements.items,
+            });
+        },
+        else => return error.NotFound,
+    }
 
     ctx.res.body = ctx.res.buffer.written();
     ctx.res.content_type = .HTML;

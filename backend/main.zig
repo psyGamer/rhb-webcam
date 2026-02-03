@@ -29,12 +29,17 @@ const admin_dist_dir = "admin-dist/";
 
 const routes: []const tk.Route = &.{
     // Views
+    .get("/", user_view.latestImage),
+    .get("/archive", user_view.archiveFull),
     .provide(db.Pool.getSession, &.{
-        .get("/", user_view.latestImage),
-        .get("/view/:path", user_view.archiveImage),
+        .get("/archive/:path", user_view.archive),
     }),
+
     // Static
-    .get("/style.css", staticFile(user_dist_dir ++ "style.css", .{ .timeout = 3600 })),
+    .get("/style.css", if (builtin.mode == .Debug)
+        staticFile("../user_frontend/style.css", .never)
+    else
+        staticFile(user_dist_dir ++ "style.css", .{ .timeout = 3600 })),
 
     // CDN
     .get("/video/:path", @import("video.zig").handler),

@@ -146,6 +146,24 @@ pub const Date = struct {
         return @intCast(@mod(rata_day + 3, 7));
     }
 
+    pub fn monthName(self: Date) []const u8 {
+        return switch (self.month) {
+            1 => "Januar",
+            2 => "Februar",
+            3 => "März",
+            4 => "April",
+            5 => "Mai",
+            6 => "Juni",
+            7 => "Juli",
+            8 => "August",
+            9 => "September",
+            10 => "Oktober",
+            11 => "November",
+            12 => "Dezember",
+            else => unreachable,
+        };
+    }
+
     pub fn format(self: Date, writer: anytype) !void {
         try writer.print("{d}-{d:0>2}-{d:0>2}", .{
             @as(u32, @intCast(self.year)),

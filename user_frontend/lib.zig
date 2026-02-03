@@ -1,10 +1,16 @@
 const std = @import("std");
 
-const image_view = @import("image_view.zig");
+const image_view = @import("image.zig");
+const archive_view = @import("archive.zig");
 
 pub const ImageViewOptions = image_view.Options;
 pub fn imageView(writer: *std.Io.Writer, options: ImageViewOptions) !void {
     try render(writer, image_view.render, .{ writer, options });
+}
+
+pub const ArchiveViewOptions = archive_view.Options;
+pub fn archiveView(writer: *std.Io.Writer, options: ArchiveViewOptions) !void {
+    try render(writer, archive_view.render, .{ writer, options });
 }
 
 inline fn render(writer: *std.Io.Writer, page_render: anytype, page_args: anytype) !void {

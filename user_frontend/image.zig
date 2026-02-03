@@ -73,20 +73,7 @@ pub fn render(writer: *std.Io.Writer, opts: Options) !void {
         \\            </div>
         \\
         \\            <div class="trains" aria-label="Liste der Züge">
-    , .{ opts.title, opts.time.day, switch (opts.time.month) {
-        .jan => "Januar",
-        .feb => "Februar",
-        .mar => "März",
-        .apr => "April",
-        .may => "Mai",
-        .jun => "Juni",
-        .jul => "Juli",
-        .aug => "August",
-        .sep => "September",
-        .oct => "Oktober",
-        .nov => "November",
-        .dec => "Dezember",
-    }, opts.time.year, opts.time.hour, opts.time.minute, opts.time.second, opts.path, opts.path });
+    , .{ opts.title, opts.time.day, opts.time.monthName(), opts.time.year, opts.time.hour, opts.time.minute, opts.time.second, opts.path, opts.path });
 
     for (opts.trains) |train| {
         if (train.number == 0) {
