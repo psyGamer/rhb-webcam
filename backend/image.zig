@@ -10,16 +10,16 @@ pub fn handler(arena: std.mem.Allocator, ctx: *tk.Context, env: *Env, path: []co
 
     const day = path[0.."YYYY-MM-DD".len];
 
-    const thumbnail_extension = ".png";
-    var thumbnail_name: [Timestamp.time_fmt.len + thumbnail_extension.len]u8 = undefined;
-    thumbnail_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
-    thumbnail_name[(thumbnail_name.len - thumbnail_extension.len)..][0..thumbnail_extension.len].* = thumbnail_extension.*;
+    const image_extension = ".png";
+    var image_name: [Timestamp.time_fmt.len + image_extension.len]u8 = undefined;
+    image_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
+    image_name[(image_name.len - image_extension.len)..][0..image_extension.len].* = image_extension.*;
 
-    const thumbnail_path = try std.fs.path.join(arena, &.{ env.key(.THUMBNAIL_CACHE), day, &thumbnail_name });
-    if (std.fs.cwd().openFile(thumbnail_path, .{})) |file| {
+    const image_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_IMAGE), day, &image_name });
+    if (std.fs.cwd().openFile(image_path, .{})) |file| {
         defer file.close();
 
-        // All videos are static and therefore all thumbnails too
+        // All videos are static and therefore all images too
         ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
 
         try sendFile(ctx, file, "image/png");
@@ -30,7 +30,7 @@ pub fn handler(arena: std.mem.Allocator, ctx: *tk.Context, env: *Env, path: []co
         video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
 
         const video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &video_name });
-        std.log.info("Generating thumbnail for video '{s}'...", .{video_path});
+        std.log.info("Generating image for video '{s}'...", .{video_path});
 
         // Early access check to give a better status code
         std.fs.cwd().access(video_path, .{ .mode = .read_only }) catch |err| {
@@ -42,44 +42,44 @@ pub fn handler(arena: std.mem.Allocator, ctx: *tk.Context, env: *Env, path: []co
             return;
         };
         // Ensure the target directory exists
-        try std.fs.cwd().makePath(try std.fs.path.join(arena, &.{ env.key(.THUMBNAIL_CACHE), day }));
+        try std.fs.cwd().makePath(try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_IMAGE), day }));
 
         const res = std.process.Child.run(.{
             .allocator = arena,
-            .argv = &.{ "ffmpegthumbnailer", "-i", video_path, "-o", thumbnail_path, "-s0", "-t00:00:10" },
+            .argv = &.{ "ffmpegthumbnailer", "-i", video_path, "-o", image_path, "-s0", "-t00:00:10" },
         }) catch |err| {
             std.log.err("Failed to spawn 'ffmpegthumbnailer' process for video '{s}': {}", .{ video_path, err });
 
             ctx.res.status = @intFromEnum(std.http.Status.internal_server_error);
-            ctx.res.body = "Failed to generate thumbnail";
+            ctx.res.body = "Failed to generate image";
             ctx.responded = true;
             return;
         };
 
         if (res.term != .Exited or res.term.Exited != 0) {
-            std.log.err("Failed to generate thumbnail for video '{s}': {}", .{ video_path, res.term });
+            std.log.err("Failed to generate image for video '{s}': {}", .{ video_path, res.term });
             var line_iter = std.mem.tokenizeAny(u8, res.stderr, "\n\r");
             while (line_iter.next()) |line| {
                 std.log.err("    {s}", .{line});
             }
 
             ctx.res.status = @intFromEnum(std.http.Status.internal_server_error);
-            ctx.res.body = "Failed to generate thumbnail";
+            ctx.res.body = "Failed to generate image";
             ctx.responded = true;
             return;
         }
 
-        const file = std.fs.cwd().openFile(thumbnail_path, .{}) catch |err| {
-            std.log.err("Failed to read thumbnail file '{s}': {}", .{ thumbnail_path, err });
+        const file = std.fs.cwd().openFile(image_path, .{}) catch |err| {
+            std.log.err("Failed to read image file '{s}': {}", .{ image_path, err });
 
             ctx.res.status = @intFromEnum(std.http.Status.internal_server_error);
-            ctx.res.body = "Failed to generate thumbnail";
+            ctx.res.body = "Failed to generate image";
             ctx.responded = true;
             return;
         };
         defer file.close();
 
-        // All videos are static and therefore all thumbnails too
+        // All videos are static and therefore all images too
         ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
 
         try sendFile(ctx, file, "image/png");

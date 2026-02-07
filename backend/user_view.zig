@@ -69,6 +69,9 @@ pub fn latestImage(ctx: *tk.Context, env: *Env) !void {
         .path = last_file,
     });
 
+    // Cache for 1 minute
+    ctx.res.header("Cache-Control", "public, max-age=60, immutable");
+
     ctx.res.body = ctx.res.buffer.written();
     ctx.res.content_type = .HTML;
     ctx.responded = true;
@@ -120,7 +123,6 @@ fn archiveImage(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: Schedul
         const db_trains = try db.query(DatabaseTrain)
             .where("file", path)
             .findAll();
-        std.log.info("DB Trains: {any}", .{db_trains});
 
         var trains: std.ArrayList(user_frontend.ImageViewOptions.Train) = .empty;
 
@@ -278,6 +280,9 @@ fn archiveImage(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: Schedul
     }
 
     try user_frontend.imageView(ctx.res.writer(), image_view_opts);
+
+    // Cache for a week
+    ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
 
     ctx.res.body = ctx.res.buffer.written();
     ctx.res.content_type = .HTML;
@@ -511,6 +516,14 @@ fn archiveOverview(ctx: *tk.Context, env: *Env, path: []const u8) !void {
             });
         },
         else => return error.NotFound,
+    }
+
+    if (is_done) {
+        // Cache for a week
+        ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+    } else {
+        // Cache for 5 minutes
+        ctx.res.header("Cache-Control", "public, max-age=300, immutable");
     }
 
     ctx.res.body = ctx.res.buffer.written();

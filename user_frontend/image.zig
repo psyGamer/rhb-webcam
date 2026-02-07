@@ -41,7 +41,7 @@ pub fn render(writer: *std.Io.Writer, opts: Options) !void {
         \\        <div class="view">
         \\            <div class="media">
         \\                <div class="content">
-        \\                    <img src="/thumbnail/{s}" alt="Filisur Webcam Image">
+        \\                    <img src="/image/{s}" alt="Filisur Webcam Image">
         \\                    <video src="/video/{s}" alt="Filisur Webcam Video" controls muted></video>
         \\                </div>
         \\

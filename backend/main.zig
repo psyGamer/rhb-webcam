@@ -17,6 +17,9 @@ const staticFile = static.staticFile;
 
 const requireAuth = @import("auth.zig").requireAuth;
 
+const CacheStorage = @import("cache.zig").Storage;
+const withCache = @import("cache.zig").withCache;
+
 const user_view = @import("user_view.zig");
 
 pub const std_options: std.Options = .{
@@ -30,10 +33,12 @@ const admin_dist_dir = "admin-dist/";
 
 const routes: []const tk.Route = &.{
     // Views
-    .get("/", user_view.latestImage),
-    .get("/archive", user_view.archiveFull),
-    .provide(db.Pool.getSession, &.{
-        .get("/archive/:path", user_view.archive),
+    withCache(&.{
+        .get("/", user_view.latestImage),
+        .get("/archive", user_view.archiveFull),
+        .provide(db.Pool.getSession, &.{
+            .get("/archive/:path", user_view.archive),
+        }),
     }),
 
     // Static
@@ -44,7 +49,7 @@ const routes: []const tk.Route = &.{
 
     // CDN
     .get("/video/:path", @import("video.zig").handler),
-    .get("/thumbnail/:path", @import("thumbnail.zig").handler),
+    .get("/image/:path", @import("image.zig").handler),
 
     // Admin
     requireAuth(.{ .realm = "Admin", .validate = validateAdminLogin }, &.{.group("/admin", &.{
@@ -225,7 +230,11 @@ pub fn main() !void {
     try db.load(&db_pool, allocator, &env);
     defer db_pool.deinit();
 
-    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool) }, null);
+    // Setup storage for caching requests
+    var req_strorage: CacheStorage = .empty;
+    defer req_strorage.deinit(allocator);
+
+    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool), .ref(&req_strorage) }, null);
     var server: tk.Server = try .init(allocator, &.{tk.logger(.{}, routes)}, .{
         .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
         .injector = &injector,

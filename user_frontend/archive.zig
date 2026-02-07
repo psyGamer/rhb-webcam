@@ -73,7 +73,7 @@ pub fn render(writer: *std.Io.Writer, opts: Options) !void {
 
         try writer.print(
             \\
-            \\                <img src="/thumbnail/{s}">
+            \\                <img src="/image/{s}">
             \\
             \\                <div class="overlay {s}">
             \\

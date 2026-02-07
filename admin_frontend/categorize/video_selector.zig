@@ -85,7 +85,7 @@ pub fn videoPreview(src: std.builtin.SourceLocation, source: []const u8, state: 
     overlay.drawBackground();
 
     const lifo = dvui.currentWindow().lifo();
-    const image_url = std.fmt.allocPrint(lifo, "/thumbnail/{s}", .{source}) catch "";
+    const image_url = std.fmt.allocPrint(lifo, "/image/{s}", .{source}) catch "";
     defer lifo.free(image_url);
 
     const content_box = dvui.box(@src(), .{}, .{
