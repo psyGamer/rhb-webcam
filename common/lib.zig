@@ -15,4 +15,5 @@ pub const full_train_classifier_names: @import("std").StaticStringMap([]const u8
     .{ "GEX", "Glacier Express" },
     .{ "BEX", "Bernina Express" },
     .{ "G", "Güterzug" },
+    .{ "D", "Dienstzug" },
 });

@@ -25,5 +25,7 @@ pub const Direction = enum {
         .{ "St. Moritz", .moritz },
         .{ "Tirano", .moritz },
         .{ "Zermatt", .chur },
+        .{ "Bergün", .moritz },
+        .{ "Preda", .moritz },
     });
 };
