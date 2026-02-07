@@ -29,7 +29,7 @@ pub const routes: []const tk.Route = &.{
 fn handleFileList(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: struct { day: []const u8, includeCategorized: bool = false }) !api.CategorizeFileList {
     if (!Timestamp.isValidSimpleDate(query.day)) return error.BadRequest;
 
-    const dir_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), query.day });
+    const dir_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), query.day });
     var day_dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
     defer day_dir.close();
 
@@ -216,7 +216,7 @@ fn handleUpdate(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: str
     video_name[0..Timestamp.time_fmt.len].* = query.file[0..Timestamp.time_fmt.len].*;
     video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
 
-    const video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), day, &video_name });
+    const video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &video_name });
     try std.fs.cwd().access(video_path, .{});
 
     // Validate train descriptions
@@ -275,7 +275,7 @@ fn handleDelete(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: str
     video_name[0..Timestamp.time_fmt.len].* = query.file[0..Timestamp.time_fmt.len].*;
     video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
 
-    const old_video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), day, &video_name });
+    const old_video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &video_name });
     const new_video_dir = try std.fs.path.join(arena, &.{ env.key(.DELETED_VIDEO_ARCHIVE), day });
     const new_video_path = try std.fs.path.join(arena, &.{ new_video_dir, &video_name });
 

@@ -6,5 +6,8 @@ opencv-python
 opencv-contrib-python
 pillow
 
+# download_landquart_webcam.py
+requests
+
 # parse_locomotive_allocations.py
 pdfplumber

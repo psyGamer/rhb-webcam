@@ -20,5 +20,5 @@ done
 # Create mega-video for day
 ffmpeg -fflags +genpts -hwaccel vaapi -hwaccel_output_format vaapi \
        -f concat -safe 0 -i archive_files.txt \
-       -movflags +faststart -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv -global_quality 40 -look_ahead 1 -preset veryfast -scenario videosurveillance $WEBCAM_VIDEO_ARCHIVE/$1/$1.mp4
+       -movflags +faststart -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv -global_quality 40 -look_ahead 1 -preset veryfast -scenario videosurveillance $WEBCAM_FILISUR_VIDEO/$1/$1.mp4
 

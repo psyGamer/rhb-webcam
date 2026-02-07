@@ -21,6 +21,7 @@ const user_view = @import("user_view.zig");
 
 pub const std_options: std.Options = .{
     .logFn = @import("logging.zig").logFn,
+    .log_level = .debug,
     .fmt_max_depth = 10,
 };
 
@@ -63,11 +64,11 @@ const routes: []const tk.Route = &.{
 
 pub const Env = dotenv.Env(enum {
     /// Directory where the captured train videos are stored
-    WEBCAM_VIDEO_ARCHIVE,
+    WEBCAM_FILISUR_VIDEO,
     /// Directory where hourly images are stored
-    WEBCAM_IMAGE_ARCHIVE,
+    WEBCAM_FILISUR_SNAPSHOT,
     /// Directory where raw webcam footage is stored
-    WEBCAM_SNIPPET_CACHE,
+    WEBCAM_FILISUR_IMAGE,
 
     /// Directory for temporarily caching thumbnail images for videos
     THUMBNAIL_CACHE,
@@ -224,10 +225,8 @@ pub fn main() !void {
     try db.load(&db_pool, allocator, &env);
     defer db_pool.deinit();
 
-    const server_routes = if (builtin.mode == .Debug) &.{tk.logger(.{}, routes)} else routes;
-
     var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool) }, null);
-    var server: tk.Server = try .init(allocator, server_routes, .{
+    var server: tk.Server = try .init(allocator, &.{tk.logger(.{}, routes)}, .{
         .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
         .injector = &injector,
     });

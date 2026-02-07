@@ -4,9 +4,8 @@
     .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .dvui = .{
-            // .url = "git+https://github.com/david-vanderson/dvui?ref=main#99635ec12eae5e698b975fa10b5eed7b1a48c8ed",
-            // .hash = "dvui-0.4.0-dev-AQFJmRHz2QDFAN25xKzwydhJXB0l_TmWZkuofvKmrJkU",
-            .path = "../dvui",
+            .url = "git+https://github.com/psyGamer/dvui.git?ref=web-improvements#bfd1224b44905c5e49208258e0dd83d604f3b9b8",
+            .hash = "dvui-0.4.0-dev-AQFJmW-s2gBrtQcIJJc_L_snDafKlZu8hA_u8eSeGKcj",
         },
         .tokamak = .{
             .url = "git+https://github.com/cztomsik/tokamak?ref=main#a25b84dab9a0557f9496263529b08b574ac6b0e6",

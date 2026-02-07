@@ -23,7 +23,7 @@ pub fn latestImage(ctx: *tk.Context, env: *Env) !void {
 
     var curr_date_dir: std.fs.Dir = while (true) {
         const curr_date_str = std.fmt.bufPrint(&curr_date_buf, "{f}", .{curr_date}) catch unreachable;
-        const curr_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), curr_date_str });
+        const curr_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.WEBCAM_FILISUR_VIDEO), curr_date_str });
 
         break std.fs.cwd().openDir(curr_path, .{ .iterate = true }) catch |err| switch (err) {
             error.FileNotFound => {
@@ -99,7 +99,7 @@ fn archiveImage(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: Schedul
     video_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
     video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
 
-    const video_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), day, &video_name });
+    const video_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &video_name });
 
     try std.fs.cwd().access(video_path, .{});
 
@@ -305,7 +305,7 @@ fn archiveOverview(ctx: *tk.Context, env: *Env, path: []const u8) !void {
                 is_done = false;
             }
 
-            const dir_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), path });
+            const dir_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.WEBCAM_FILISUR_VIDEO), path });
 
             var dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
             defer dir.close();
@@ -343,7 +343,7 @@ fn archiveOverview(ctx: *tk.Context, env: *Env, path: []const u8) !void {
                 is_done = false;
             }
 
-            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_VIDEO_ARCHIVE), .{ .iterate = true });
+            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_FILISUR_VIDEO), .{ .iterate = true });
             defer archive_dir.close();
 
             var elements: std.ArrayList(user_frontend.ArchiveViewOptions.Element) = .empty;
@@ -396,7 +396,7 @@ fn archiveOverview(ctx: *tk.Context, env: *Env, path: []const u8) !void {
                 is_done = false;
             }
 
-            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_VIDEO_ARCHIVE), .{ .iterate = true });
+            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_FILISUR_VIDEO), .{ .iterate = true });
             defer archive_dir.close();
 
             var elements: std.ArrayList(user_frontend.ArchiveViewOptions.Element) = .empty;
@@ -454,7 +454,7 @@ fn archiveOverview(ctx: *tk.Context, env: *Env, path: []const u8) !void {
             });
         },
         "".len => {
-            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_VIDEO_ARCHIVE), .{ .iterate = true });
+            var archive_dir = try std.fs.cwd().openDir(env.key(.WEBCAM_FILISUR_VIDEO), .{ .iterate = true });
             defer archive_dir.close();
 
             var elements: std.ArrayList(user_frontend.ArchiveViewOptions.Element) = .empty;

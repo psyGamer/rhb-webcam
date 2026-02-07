@@ -29,7 +29,7 @@ pub fn handler(arena: std.mem.Allocator, ctx: *tk.Context, env: *Env, path: []co
         video_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
         video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
 
-        const video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_VIDEO_ARCHIVE), day, &video_name });
+        const video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &video_name });
         std.log.info("Generating thumbnail for video '{s}'...", .{video_path});
 
         // Early access check to give a better status code

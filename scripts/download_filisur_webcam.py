@@ -324,19 +324,23 @@ class SnippetCollection:
     previous_file: str = None
     current_file: str = None
 
-    target_file: str = None
+    video_target_file: str = None
+    thumbnail_target_file: str = None
 
     recording: bool = False
     segments: list[str] = None
     pending_flush: list[str] = None
 
+    thumbnail_frame: cv2.typing.MatLike = None
+    thumbnail_timeout: int = 0
+    
     start_time: float = 0.0
 
     def __post_init__(self):
         self.segments = []
         self.pending_flush = []
 
-    def start_recording(self, time: float, should_buffer_start: bool):
+    def start_recording(self, frame: cv2.typing.MatLike, timeout_frames: int, time: float, should_buffer_start: bool):
         now = datetime.now()
         print(f"== Started Recording at {now} ==")
         if len(self.pending_flush) != 0:
@@ -348,12 +352,18 @@ class SnippetCollection:
             else:
                 self.segments = [self.previous_file, self.current_file]
 
-            target_dir = f"{os.getenv("WEBCAM_VIDEO_ARCHIVE")}/{now.strftime('%Y-%m-%d')}"
-            if (not os.path.exists(target_dir)):
-                os.mkdir(target_dir)
+            video_target_dir = f"{os.getenv("WEBCAM_FILISUR_VIDEO")}/{now.strftime('%Y-%m-%d')}"
+            if (not os.path.exists(video_target_dir)):
+                os.mkdir(video_target_dir)
+            thumbnail_target_dir = f"{os.getenv("WEBCAM_FILISUR_IMAGE")}/{now.strftime('%Y-%m-%d')}"
+            if (not os.path.exists(thumbnail_target_dir)):
+                os.mkdir(thumbnail_target_dir)
 
-            self.target_file = f"{target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
+            self.video_target_file = f"{video_target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
+            self.thumbnail_target_file = f"{thumbnail_target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png"
             self.start_time = time
+            self.thumbnail_frame = frame.copy()
+            self.thumbnail_timeout = timeout_frames
 
         self.recording = True
 
@@ -390,7 +400,7 @@ class SnippetCollection:
     
     def flush(self):
         if not output_video:
-            print(f" => {self.target_file}  ({len(self.pending_flush)} segments)")
+            print(f" => {self.video_target_file}  ({len(self.pending_flush)} segments)")
             self.pending_flush =  []
             return
 
@@ -405,10 +415,12 @@ class SnippetCollection:
             "-fflags", "+genpts",
             "-f", "concat", "-safe", "0",
             "-i", filelist,
-            "-movflags", "+faststart", "-c:v", "copy", self.target_file
+            "-movflags", "+faststart", "-c:v", "copy", self.video_target_file
         ])
 
-        print(f" => {self.target_file}  ({len(self.pending_flush)} segments)")
+        cv2.imwrite(self.thumbnail_target_file, self.thumbnail_frame)
+
+        print(f" => {self.video_target_file}  ({len(self.pending_flush)} segments)")
         self.pending_flush =  []
 
 class FFmpegVideoWriter:
@@ -491,8 +503,8 @@ def run_analysis(queue: DataQueue):
             print(f"Got metadata: {meta}")
         else:
             # Frame to analyse
-            image_data: tuple[cv2.typing.MatLike, float] = obj
-            curr_image, snippet_duration = image_data
+            image_data: tuple[cv2.typing.MatLike, cv2.typing.MatLike, float] = obj
+            curr_image, curr_frame, snippet_duration = image_data
 
             curr_gray = cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY)
             curr_fg_mask = bg_sub.apply(curr_image)
@@ -529,9 +541,30 @@ def run_analysis(queue: DataQueue):
                 if auto_pause:
                     auto_playback = False
 
-                collection.start_recording(total_count/meta.fps, should_buffer_start)
+                collection.start_recording(curr_frame, 3, total_count/meta.fps, should_buffer_start)
             elif not any_triggered and collection.recording:
                 collection.stop_recording(total_count/meta.fps)
+
+            if collection.recording:
+                if collection.thumbnail_timeout == 0:
+                    collection.thumbnail_frame = curr_frame.copy()
+                    collection.thumbnail_timeout = -1
+
+                    # Match filename with new thumbnail
+                    now = datetime.now()
+
+                    video_target_dir = f"{os.getenv("WEBCAM_FILISUR_VIDEO")}/{now.strftime('%Y-%m-%d')}"
+                    if (not os.path.exists(video_target_dir)):
+                        os.mkdir(video_target_dir)
+                    thumbnail_target_dir = f"{os.getenv("WEBCAM_FILISUR_IMAGE")}/{now.strftime('%Y-%m-%d')}"
+                    if (not os.path.exists(thumbnail_target_dir)):
+                        os.mkdir(thumbnail_target_dir)
+
+                    collection.video_target_file = f"{video_target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
+                    collection.thumbnail_target_file = f"{thumbnail_target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                    
+                elif collection.thumbnail_timeout > 0:
+                    collection.thumbnail_timeout -= 1
 
             total_count += int(check_interval*meta.fps)
 
@@ -644,9 +677,9 @@ def run_capture(queue: DataQueue):
                 global last_image_write
                 if output_video and (last_image_write is None or last_image_write != hourly_now):
                     last_image_write = hourly_now
-                    cv2.imwrite(f"{os.getenv("WEBCAM_IMAGE_ARCHIVE")}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png", curr_image)
+                    cv2.imwrite(f"{os.getenv("WEBCAM_FILISUR_SNAPSHOT")}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png", curr_image)
 
-                target_dir = f"{os.getenv("WEBCAM_SNIPPET_CACHE")}/{now.strftime('%Y-%m-%d')}"
+                target_dir = f"{os.getenv("WEBCAM_FILISUR_SNIPPET")}/{now.strftime('%Y-%m-%d')}"
                 if (not os.path.exists(target_dir)):
                     os.mkdir(target_dir)
 
@@ -694,6 +727,7 @@ def run_capture(queue: DataQueue):
 
                 queue.put((
                     cv2.resize(curr_image[crop_region["y1"]:crop_region["y2"], crop_region["x1"]:crop_region["x2"]], (0,0), fx=1, fy=1), 
+                    curr_image,
                     snippet_counter/meta.fps
                 ))
 
