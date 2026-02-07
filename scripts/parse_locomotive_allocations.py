@@ -219,7 +219,7 @@ def main(input_path, output_dir):
         hour24_x = None
         for rect in page.rects:
             # Identify based on usual attributes
-            if rect['height'] < 50 or rect['top'] < 50 or rect['top'] > 62 or not approx_equal_tuple(rect['non_stroking_color'], (0.625, 0.625, 0.625)):
+            if rect['height'] < 45 or rect['top'] < 50 or rect['top'] > 62 or not approx_equal_tuple(rect['non_stroking_color'], (0.625, 0.625, 0.625)):
                 continue
 
             # Assumes they are orded in the PDF file, but they *should* be
@@ -246,9 +246,13 @@ def main(input_path, output_dir):
             # Find the appropriate train number
             train_number = None
             min_dist = float("inf")
+            buffer = 10 if rect['x1'] - rect['x0'] < 5 else 3
             for i, word in enumerate(words):
                 dist = rect['top'] - word['bottom']
-                if word['x0'] >= rect['x0'] - 10 and word['x1'] <= rect['x1'] + 10 and dist >= -1 and dist < min_dist:
+                # if word['text'] == 'F1834' or word['text'] == '4834':
+                #     print(f"- Rect {rect['x0']:.2f},{rect['y0']:.2f}-{rect['x1']:.2f},{rect['y1']:.2f} // Word '{word['text']}' {word['x0']:.2f},{word['top']:.2f}-{word['x1']:.2f},{word['bottom']:.2f} // Dist {dist}")
+
+                if word['x0'] >= rect['x0'] - buffer and word['x1'] <= rect['x1'] + buffer and dist >= -1 and dist < min_dist:
                     train_number = word['text']
                     min_dist = dist
                 
