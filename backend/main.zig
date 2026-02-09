@@ -68,18 +68,22 @@ const routes: []const tk.Route = &.{
 };
 
 pub const Env = dotenv.Env(enum {
-    /// Directory where the captured train videos are stored
-    WEBCAM_FILISUR_VIDEO,
-    /// Directory where hourly images are stored
-    WEBCAM_FILISUR_SNAPSHOT,
-    /// Directory where raw webcam footage is stored
+    /// Preview images for videos from the Filisur webcam
     WEBCAM_FILISUR_IMAGE,
+    /// Images from the Landwasser webcam
+    WEBCAM_LANDWASSER_IMAGE,
+    /// Images from the Landquart webcam
+    WEBCAM_LANDQUART_IMAGE,
+    /// Image sequences from the Brusio webcam
+    WEBCAM_BRUSIO_IMAGE,
 
-    /// Directory for temporarily caching thumbnail images for videos
-    THUMBNAIL_CACHE,
+    /// Videos from the filisur webcam
+    WEBCAM_FILISUR_VIDEO,
 
-    /// Directory for temporarily archiving deleted videos
-    DELETED_VIDEO_ARCHIVE,
+    /// Deleted images / videos from the Filisur webcam
+    DELETED_FILISUR_ARCHIVE,
+    /// Deleted images from the Brusio webcam
+    DELETED_BRUSIO_ARCHIVE,
 
     /// Directory for archiving original locomotive allocation PDFs
     LOCOMOTIVE_ALLOCATIONS_ARCHIVE,

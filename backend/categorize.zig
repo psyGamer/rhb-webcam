@@ -275,12 +275,21 @@ fn handleDelete(arena: std.mem.Allocator, db: *fr.Session, env: *Env, query: str
     video_name[0..Timestamp.time_fmt.len].* = query.file[0..Timestamp.time_fmt.len].*;
     video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
 
-    const old_video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &video_name });
-    const new_video_dir = try std.fs.path.join(arena, &.{ env.key(.DELETED_VIDEO_ARCHIVE), day });
-    const new_video_path = try std.fs.path.join(arena, &.{ new_video_dir, &video_name });
+    const image_extension = ".mp4";
+    var image_name: [Timestamp.time_fmt.len + image_extension.len]u8 = undefined;
+    image_name[0..Timestamp.time_fmt.len].* = query.file[0..Timestamp.time_fmt.len].*;
+    image_name[(image_name.len - image_extension.len)..][0..image_extension.len].* = image_extension.*;
 
-    try std.fs.cwd().makePath(new_video_dir);
+    const deletion_dir = try std.fs.path.join(arena, &.{ env.key(.DELETED_FILISUR_ARCHIVE), day });
+
+    const old_video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &video_name });
+    const new_video_path = try std.fs.path.join(arena, &.{ deletion_dir, &video_name });
+    const old_image_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &image_name });
+    const new_image_path = try std.fs.path.join(arena, &.{ deletion_dir, &image_name });
+
+    try std.fs.cwd().makePath(deletion_dir);
     try std.fs.cwd().rename(old_video_path, new_video_path);
+    try std.fs.cwd().rename(old_image_path, new_image_path);
 
     // Clear any stored trains
     try db.query(DatabaseTrain)
