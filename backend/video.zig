@@ -16,19 +16,12 @@ pub fn handler(arena: std.mem.Allocator, ctx: *tk.Context, env: *Env, path: []co
     video_name[(video_name.len - video_extension.len)..][0..video_extension.len].* = video_extension.*;
 
     const video_path = try std.fs.path.join(arena, &.{ env.key(.WEBCAM_FILISUR_VIDEO), day, &video_name });
-    if (std.fs.cwd().openFile(video_path, .{})) |file| {
-        defer file.close();
 
-        // All videos are static
-        ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+    const file = try std.fs.cwd().openFile(video_path, .{});
+    defer file.close();
 
-        try sendFile(ctx, file, "video/mp4");
-    } else |err| {
-        std.log.err("Failed to access video '{s}': {}", .{ video_path, err });
+    // All videos are static
+    ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
 
-        ctx.res.status = @intFromEnum(std.http.Status.not_found);
-        ctx.res.body = "Failed to access source video";
-        ctx.responded = true;
-        return;
-    }
+    try sendFile(ctx, file, "video/mp4");
 }
