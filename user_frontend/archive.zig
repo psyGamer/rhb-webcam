@@ -1,6 +1,7 @@
 const std = @import("std");
 const Date = @import("common").time.Date;
 const Timestamp = @import("common").Timestamp;
+const Location = @import("common").Location;
 
 pub const Options = struct {
     pub const Element = struct {
@@ -21,6 +22,7 @@ pub const Options = struct {
 
     type: enum { full, year, month, day },
     date: Date,
+    location: Location,
 
     elements: []const Element,
 };
@@ -58,26 +60,26 @@ pub fn render(writer: *std.Io.Writer, opts: Options) !void {
     for (opts.elements) |elem| {
         switch (opts.type) {
             .day => try writer.print(
-                \\            <a class="preview card" href="/archive/{f}">
-            , .{elem.time}),
+                \\            <a class="preview card" href="/{s}/archive/{f}">
+            , .{ @tagName(opts.location), elem.time }),
             .month => try writer.print(
-                \\            <a class="preview card" href="/archive/{d}-{d:0>2}-{d:0>2}">
-            , .{ elem.time.year, @intFromEnum(elem.time.month), elem.time.day }),
+                \\            <a class="preview card" href="/{s}/archive/{d}-{d:0>2}-{d:0>2}">
+            , .{ @tagName(opts.location), elem.time.year, @intFromEnum(elem.time.month), elem.time.day }),
             .year => try writer.print(
-                \\            <a class="preview card" href="/archive/{d}-{d:0>2}">
-            , .{ elem.time.year, @intFromEnum(elem.time.month) }),
+                \\            <a class="preview card" href="/{s}/archive/{d}-{d:0>2}">
+            , .{ @tagName(opts.location), elem.time.year, @intFromEnum(elem.time.month) }),
             .full => try writer.print(
-                \\            <a class="preview card" href="/archive/{d}">
-            , .{elem.time.year}),
+                \\            <a class="preview card" href="/{s}/archive/{d}">
+            , .{ @tagName(opts.location), elem.time.year }),
         }
 
         try writer.print(
             \\
-            \\                <img src="/image/{s}">
+            \\                <img src="/{s}/image/{s}">
             \\
             \\                <div class="overlay {s}">
             \\
-        , .{ &elem.preview_image, if (opts.type == .day) "top" else "both" });
+        , .{ @tagName(opts.location), &elem.preview_image, if (opts.type == .day) "top" else "both" });
 
         switch (opts.type) {
             .day => try writer.print(

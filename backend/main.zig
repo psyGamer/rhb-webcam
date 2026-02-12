@@ -8,6 +8,7 @@ const dotenv = @import("dotenv");
 
 const Schedule = @import("common").Schedule;
 const TrainAllocation = @import("common").TrainAllocation;
+const Location = @import("common").Location;
 
 const db = @import("database.zig");
 
@@ -15,12 +16,16 @@ const static = @import("static.zig");
 const assetDirectory = static.assetDirectory;
 const staticFile = static.staticFile;
 
+const cdnHandler = @import("cdn.zig").handler;
+
 const requireAuth = @import("auth.zig").requireAuth;
 
 const CacheStorage = @import("cache.zig").Storage;
 const withCache = @import("cache.zig").withCache;
 
-const user_view = @import("user_view.zig");
+const latest_view = @import("public/latest.zig");
+const capture_view = @import("public/capture.zig");
+const archiveView = @import("public/archive.zig").archive;
 
 pub const std_options: std.Options = .{
     .logFn = @import("logging.zig").logFn,
@@ -32,12 +37,20 @@ const user_dist_dir = "user-dist/";
 const admin_dist_dir = "admin-dist/";
 
 const routes: []const tk.Route = &.{
+    // Default to Filisur webcam (probably most popular)
+    .get("/", tk.redirect("/filisur")),
+
     // Views
-    withCache(&.{
-        .get("/", user_view.latestImage),
-        .get("/archive", user_view.archiveFull),
-        .provide(db.Pool.getSession, &.{
-            .get("/archive/:path", user_view.archive),
+    .provide(db.Pool.getSession, &.{
+        .group("/" ++ @tagName(Location.filisur), &.{
+            // Archive
+            .group("/archive", archiveView(.filisur)),
+            // CDN
+            .get("/image/:path", cdnHandler(.filisur, .image)),
+            .get("/video/:path", cdnHandler(.filisur, .video)),
+            // View
+            .get("/", latest_view.filisurLatest),
+            .get("/:path", capture_view.filisurCapture),
         }),
     }),
 
@@ -46,10 +59,6 @@ const routes: []const tk.Route = &.{
         staticFile("../user_frontend/style.css", .never)
     else
         staticFile(user_dist_dir ++ "style.css", .{ .timeout = 3600 })),
-
-    // CDN
-    .get("/video/:path", @import("video.zig").handler),
-    .get("/image/:path", @import("image.zig").handler),
 
     // Admin
     requireAuth(.{ .realm = "Admin", .validate = validateAdminLogin }, &.{.group("/admin", &.{

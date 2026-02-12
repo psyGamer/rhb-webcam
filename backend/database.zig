@@ -32,6 +32,27 @@ pub const Locomotive = struct {
     position: u32,
     towed: bool,
 };
+pub const FilisurCapture = struct {
+    pub const sql_table_name = "filisur_capture";
+
+    file: []const u8,
+};
+pub const LandwasserCapture = struct {
+    pub const sql_table_name = "landwasser_capture";
+
+    file: []const u8,
+};
+pub const LandquartCapture = struct {
+    pub const sql_table_name = "landquart_capture";
+
+    file: []const u8,
+};
+pub const BrusioCapture = struct {
+    pub const sql_table_name = "brusio_capture";
+
+    sequence_id: u32,
+    file: []const u8,
+};
 
 pub const struct_sqlite3 = opaque {};
 pub const sqlite3 = struct_sqlite3;
@@ -117,4 +138,18 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
         \\    FOREIGN KEY(train_id) REFERENCES {s}(id) ON DELETE CASCADE
         \\);
     , .{ Locomotive.sql_table_name, Train.sql_table_name }), .{});
+
+    inline for (&.{ FilisurCapture, LandwasserCapture, LandquartCapture }) |Capture| {
+        try db.exec(std.fmt.comptimePrint(
+            \\CREATE TABLE IF NOT EXISTS {s}(
+            \\    file VARCHAR({d}) PRIMARY KEY
+            \\);
+        , .{ Capture.sql_table_name, Timestamp.time_fmt.len }), .{});
+    }
+    try db.exec(std.fmt.comptimePrint(
+        \\CREATE TABLE IF NOT EXISTS {s}(
+        \\    file        VARCHAR({d}) PRIMARY KEY,
+        \\    sequence_id INTEGER NOT NULL
+        \\);
+    , .{ BrusioCapture.sql_table_name, Timestamp.time_fmt.len }), .{});
 }

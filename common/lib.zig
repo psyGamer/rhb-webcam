@@ -6,6 +6,7 @@ pub const Schedule = @import("Schedule.zig");
 pub const TrainAllocation = @import("TrainAllocation.zig");
 pub const Locomotive = @import("Locomotive.zig");
 pub const Direction = @import("direction.zig").Direction;
+pub const Location = @import("location.zig").Location;
 
 pub const full_train_classifier_names: @import("std").StaticStringMap([]const u8) = .initComptime(.{
     .{ "R 1", "Regio 1" },

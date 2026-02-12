@@ -105,6 +105,8 @@ header {
 
             /* Items */
             div {
+                z-index: 50;
+                
                 position: absolute;
                 top: calc(100% + 6px);
                 left: 0;

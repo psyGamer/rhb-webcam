@@ -17,6 +17,8 @@ from PIL import ImageFont, ImageDraw, Image
 import numpy as np
 import cv2
 
+import sqlite3
+
 webcam_url = "https://grischuna-cam.weta.ch/cgi-bin/mjpg/video.cgi?channel=0&subtype=1"
 
 video_source = webcam_url
@@ -34,6 +36,9 @@ crop_region = { "x1": 340, "x2": 704, "y1": 300, "y2": 576 }
 track_focal_point = (295, 300)
 
 last_image_write = None
+
+database = None
+database_cursor = None
 
 preview_mode = True
 debug_mode = False
@@ -324,6 +329,7 @@ class SnippetCollection:
     previous_file: str = None
     current_file: str = None
 
+    file_name: str = None
     video_target_file: str = None
     thumbnail_target_file: str = None
 
@@ -359,8 +365,9 @@ class SnippetCollection:
             if (not os.path.exists(thumbnail_target_dir)):
                 os.mkdir(thumbnail_target_dir)
 
-            self.video_target_file = f"{video_target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
-            self.thumbnail_target_file = f"{thumbnail_target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png"
+            self.file_name = now.strftime('%Y-%m-%d_%H-%M-%S')
+            self.video_target_file = f"{video_target_dir}/{self.file_name}.mp4"
+            self.thumbnail_target_file = f"{thumbnail_target_dir}/{self.file_name}.png"
             self.start_time = time
             self.thumbnail_frame = frame.copy()
             self.thumbnail_timeout = timeout_frames
@@ -419,6 +426,11 @@ class SnippetCollection:
         ])
 
         cv2.imwrite(self.thumbnail_target_file, self.thumbnail_frame)
+
+        global database
+        global database_cursor
+        database_cursor.execute(f"INSERT INTO filisur_capture (file) VALUES (\"{self.file_name}\")")
+        database.commit()
 
         print(f" => {self.video_target_file}  ({len(self.pending_flush)} segments)")
         self.pending_flush =  []
@@ -560,8 +572,9 @@ def run_analysis(queue: DataQueue):
                     if (not os.path.exists(thumbnail_target_dir)):
                         os.mkdir(thumbnail_target_dir)
 
-                    collection.video_target_file = f"{video_target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
-                    collection.thumbnail_target_file = f"{thumbnail_target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                    collection.file_name = now.strftime('%Y-%m-%d_%H-%M-%S')
+                    collection.video_target_file = f"{video_target_dir}/{collection.file_name}.mp4"
+                    collection.thumbnail_target_file = f"{thumbnail_target_dir}/{collection.file_name}.png"
                     
                 elif collection.thumbnail_timeout > 0:
                     collection.thumbnail_timeout -= 1
@@ -829,6 +842,11 @@ def capture_worker(queue: DataQueue):
 
 def main():
     load_dotenv()
+
+    global database
+    global database_cursor
+    database = sqlite3.connect(os.getenv("DATABASE_PROD_PATH"))
+    database_cursor = database.cursor()
 
     queue: DataQueue = Queue(maxsize=0)
     capture_thread = Thread(target=capture_worker, args=[queue])

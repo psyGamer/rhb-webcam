@@ -7,6 +7,7 @@
 // https://en.wikipedia.org/wiki/Rata_Die
 // https://research.swtch.com/leap
 const std = @import("std");
+const builtin = @import("builtin");
 
 const RATA_MIN = date_to_rata(Date.MIN);
 const RATA_MAX = date_to_rata(Date.MAX);
@@ -30,7 +31,11 @@ fn checkRange(num: anytype, min: @TypeOf(num), max: @TypeOf(num)) void {
     }
 }
 
-pub extern "meta" fn get_timestamp() i64;
+const backend = if (builtin.cpu.arch == .wasm32) struct {
+    pub extern "meta" fn get_timestamp() i64;
+} else struct {
+    pub const get_timestamp = std.time.timestamp;
+};
 
 pub const TimeUnit = enum { second, minute, hour, day, month, year };
 pub const DateUnit = enum { day, month, year };
@@ -181,7 +186,7 @@ pub const Time = struct {
     }
 
     pub fn now() Time {
-        return unix(get_timestamp());
+        return unix(backend.get_timestamp());
     }
 
     pub fn today() Time {

@@ -1,0 +1,124 @@
+const std = @import("std");
+const tk = @import("tokamak");
+const fr = @import("fridge");
+const zeit = @import("zeit");
+
+const user_frontend = @import("user-frontend");
+
+const Timestamp = @import("common").Timestamp;
+const Clock = @import("common").Schedule.Clock;
+const Direction = @import("common").Direction;
+const Locomotive = @import("common").Locomotive;
+const Location = @import("common").Location;
+
+const Env = @import("../main.zig").Env;
+const Schedules = @import("../main.zig").Schedules;
+
+const DatabaseTrain = @import("../database.zig").Train;
+const DatabaseLocomotive = @import("../database.zig").Locomotive;
+
+pub fn archive(comptime location: Location) []const tk.Route {
+    const Capture = switch (location) {
+        .filisur => @import("../database.zig").FilisurCapture,
+        else => @compileError("TODO"),
+    };
+
+    const H = struct {
+        pub fn handle(ctx: *tk.Context) anyerror!void {
+            const db = try ctx.injector.get(*fr.Session);
+
+            var it = std.mem.splitScalar(u8, ctx.params.get(0) orelse "", '-');
+            const year = std.fmt.parseInt(u16, it.next() orelse "", 10) catch null;
+            const month = std.fmt.parseInt(u8, it.next() orelse "", 10) catch null;
+            const day = std.fmt.parseInt(u8, it.next() orelse "", 10) catch null;
+
+            // Setup template data
+            var archive_opts: user_frontend.ArchiveViewOptions = .{
+                .type = if (day != null)
+                    .day
+                else if (month != null)
+                    .month
+                else if (year != null)
+                    .year
+                else
+                    .full,
+                .date = .{ .year = year orelse 0, .month = month orelse 0, .day = day orelse 0 },
+
+                .location = location,
+
+                .elements = &.{},
+            };
+
+            if (year != null and month != null and day != null) {
+                const captures = try db.raw("SELECT file FROM " ++ Capture.sql_table_name, .{})
+                    .where("file LIKE ? || '%'", .{ctx.params.get(0).?})
+                    .orderBy("file")
+                    .fetchAll([]const u8);
+
+                const elements = try ctx.allocator.alloc(user_frontend.ArchiveViewOptions.Element, captures.len);
+                for (captures, elements) |capture, *element| {
+                    if (capture.len != Timestamp.time_fmt.len) return error.InvalidTimestamp;
+
+                    element.* = .{
+                        .capture_count = 0,
+                        .preview_image = capture[0..Timestamp.time_fmt.len].*,
+                        .time = Timestamp.parseSimpleTime(capture) orelse return error.InvalidTimestamp,
+                    };
+                }
+
+                archive_opts.elements = elements;
+            } else {
+                const prefix_len = switch (archive_opts.type) {
+                    .full => "YYYY".len,
+                    .year => "YYYY-MM".len,
+                    .month => "YYYY-MM-DD".len,
+                    .day => unreachable,
+                };
+
+                const entries = try db.raw(std.fmt.comptimePrint(
+                    \\SELECT
+                    \\    SUBSTR(file, 1, ?) as group_prefix,
+                    \\    COUNT(*) AS capture_count,
+                    \\    (
+                    \\        SELECT file FROM {s} t2
+                    \\        WHERE substr(t2.file, 1, ?) = substr(t1.file, 1, ?)
+                    \\        ORDER BY RANDOM() 
+                    \\        LIMIT 1
+                    \\    ) AS file
+                    \\FROM {s} t1
+                    \\WHERE group_prefix LIKE ? || '%'
+                    \\GROUP BY group_prefix
+                    \\ORDER BY group_prefix
+                , .{ Capture.sql_table_name, Capture.sql_table_name }), .{ prefix_len, prefix_len, prefix_len, ctx.params.get(0) orelse "" })
+                    .fetchAll(struct { _: []const u8, amount: u32, file: []const u8 });
+
+                const elements = try ctx.allocator.alloc(user_frontend.ArchiveViewOptions.Element, entries.len);
+                for (entries, elements) |entry, *element| {
+                    if (entry.file.len != Timestamp.time_fmt.len) return error.InvalidTimestamp;
+
+                    element.* = .{
+                        .capture_count = entry.amount,
+                        .preview_image = entry.file[0..Timestamp.time_fmt.len].*,
+                        .time = Timestamp.parseSimpleTime(entry.file) orelse return error.InvalidTimestamp,
+                    };
+                }
+
+                archive_opts.elements = elements;
+            }
+
+            try user_frontend.archiveView(ctx.res.writer(), archive_opts);
+
+            // Cache for a week
+            ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+
+            ctx.res.body = ctx.res.buffer.written();
+            ctx.res.content_type = .HTML;
+            ctx.responded = true;
+        }
+    };
+
+    return &.{
+        .get("/", tk.Route{ .handler = &H.handle }),
+        .get("/:path", tk.Route{ .handler = &H.handle }),
+    };
+}

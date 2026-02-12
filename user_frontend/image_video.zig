@@ -3,6 +3,8 @@ const std = @import("std");
 const Timestamp = @import("common").Timestamp;
 const Clock = @import("common").Schedule.Clock;
 const Locomotive = @import("common").Locomotive;
+const Source = @import("source.zig").Source;
+const Location = @import("common").Location;
 
 pub const Options = struct {
     pub const Train = struct {
@@ -24,13 +26,24 @@ pub const Options = struct {
     };
 
     title: []const u8,
+    source: Source,
+
     time: Timestamp,
     path: [Timestamp.time_fmt.len]u8,
 
     trains: []const Train = &.{},
+
+    has_video: bool,
 };
 
 pub fn render(writer: *std.Io.Writer, opts: Options) !void {
+    const location: Location = switch (opts.source) {
+        .filisur_old, .filisur_new => .filisur,
+        .landwasser => .landwasser,
+        .landquart => .landquart,
+        .brusio => .brusio,
+    };
+
     try writer.print(
         \\    <div class="main">
         \\        <div class="title">
@@ -41,39 +54,58 @@ pub fn render(writer: *std.Io.Writer, opts: Options) !void {
         \\        <div class="view">
         \\            <div class="media">
         \\                <div class="content">
-        \\                    <img src="/image/{s}" alt="Filisur Webcam Image">
-        \\                    <video src="/video/{s}" alt="Filisur Webcam Video" controls muted></video>
-        \\                </div>
+        \\                    <img src="/{s}/image/{s}" alt="{s} Webcam Bild">
         \\
-        \\                <div class="meta" aria-label="Bild / Video der Züge">
-        \\                    <button class="toggle-display" aria-pressed="false" title="Toggle between image and video" onclick="toggleImageVideo(this)">
-        \\                        <span class="toggle-option toggle-image">
-        \\                            <!-- Source: https://icongr.am/entypo/image.svg -->
-        \\                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="32" height="32">
-        \\                                <g>
-        \\                                    <path fill-rule="evenodd" clip-rule="evenodd" d="M19 2H1a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm-1 14H2V4h16v12zm-3.685-5.123l-3.231 1.605-3.77-6.101L4 14h12l-1.685-3.123zM13.25 9a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"/>
-        \\                                </g>
-        \\                            </svg>
-        \\                            Bild
-        \\                        </span>
-        \\                        <span class="toggle-slider"></span>
-        \\                        <span class="toggle-option toggle-video">
-        \\                            <!-- Source: https://icongr.am/entypo/video.svg -->
-        \\                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="32" height="32">
-        \\                                <g>
-        \\                                    <path d="M20 5V3.799A.798.798 0 0 0 19.201 3H.801A.8.8 0 0 0 0 3.799V5h2v2H0v2h2v2H0v2h2v2H0v1.199A.8.8 0 0 0 .801 17h18.4a.8.8 0 0 0 .799-.801V15h-2v-2h2v-2h-2V9h2V7h-2V5h2zM8 13V7l5 3-5 3z"/>
-        \\                                </g>
-        \\                            </svg>
-        \\                            Video
-        \\                        </span>
-        \\                    </button>
-        \\
-        \\                    <div class="info">Kamera: <a href="https://grischuna-filisur.ch">Hotel Grischuna</a>・<a href="https://grischuna-cam.weta.ch/cgi-bin/mjpg/video.cgi?channel=1&subtype=1">Live Video</a></div>
-        \\                </div>
-        \\            </div>
-        \\
-        \\            <div class="trains" aria-label="Liste der Züge">
-    , .{ opts.title, opts.time.day, opts.time.monthName(), opts.time.year, opts.time.hour, opts.time.minute, opts.time.second, opts.path, opts.path });
+    , .{ opts.title, opts.time.day, opts.time.monthName(), opts.time.year, opts.time.hour, opts.time.minute, opts.time.second, @tagName(location), opts.path, Location.names.get(location) });
+
+    if (opts.has_video) {
+        try writer.print(
+            \\                    <video src="/{s}/video/{s}" alt="{s} Webcam Video" controls muted></video>
+            \\                </div>
+            \\
+            \\                <div class="meta">
+            \\                    <button class="toggle-display" aria-pressed="false" title="Toggle between image and video" onclick="toggleImageVideo(this)">
+            \\                        <span class="toggle-option toggle-image">
+            \\                            <!-- Source: https://icongr.am/entypo/image.svg -->
+            \\                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="32" height="32">
+            \\                                <g>
+            \\                                    <path fill-rule="evenodd" clip-rule="evenodd" d="M19 2H1a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm-1 14H2V4h16v12zm-3.685-5.123l-3.231 1.605-3.77-6.101L4 14h12l-1.685-3.123zM13.25 9a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"/>
+            \\                                </g>
+            \\                            </svg>
+            \\                            Bild
+            \\                        </span>
+            \\                        <span class="toggle-slider"></span>
+            \\                        <span class="toggle-option toggle-video">
+            \\                            <!-- Source: https://icongr.am/entypo/video.svg -->
+            \\                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" width="32" height="32">
+            \\                                <g>
+            \\                                    <path d="M20 5V3.799A.798.798 0 0 0 19.201 3H.801A.8.8 0 0 0 0 3.799V5h2v2H0v2h2v2H0v2h2v2H0v1.199A.8.8 0 0 0 .801 17h18.4a.8.8 0 0 0 .799-.801V15h-2v-2h2v-2h-2V9h2V7h-2V5h2zM8 13V7l5 3-5 3z"/>
+            \\                                </g>
+            \\                            </svg>
+            \\                            Video
+            \\                        </span>
+            \\                    </button>
+            \\
+            \\                    <div class="info">{s}</div>
+            \\                </div>
+            \\            </div>
+            \\
+            \\            <div class="trains" aria-label="Liste der Züge">
+            \\
+        , .{ @tagName(location), opts.path, Location.names.get(location), Source.attribution.get(opts.source) });
+    } else {
+        try writer.print(
+            \\                </div>
+            \\
+            \\                <div class="meta">
+            \\                    <div class="info">{s}</div>
+            \\                </div>
+            \\            </div>
+            \\
+            \\            <div class="trains" aria-label="Liste der Züge">
+            \\
+        , .{Source.attribution.get(opts.source)});
+    }
 
     for (opts.trains) |train| {
         if (train.number == 0) {
