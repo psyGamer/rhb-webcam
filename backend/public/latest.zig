@@ -6,11 +6,16 @@ const user_frontend = @import("user-frontend");
 
 const Timestamp = @import("common").Timestamp;
 
-/// Show a specific capture rom the Filisur webcam
+/// Show the latest capture from the Filisur webcam
 pub fn filisurLatest(ctx: *tk.Context, db: *fr.Session) !void {
-    const latest = try db.raw("SELECT file FROM " ++ @import("../database.zig").FilisurCapture.sql_table_name, .{})
-        .orderBy("file DESC")
-        .fetchOne([]const u8) orelse return error.MissingData;
+    const query = db.raw("SELECT file FROM " ++ @import("../database.zig").FilisurCapture.sql_table_name, .{})
+        .orderBy("file DESC");
+
+    var stmt = try query.prepare();
+    defer stmt.deinit();
+
+    const latest = try stmt.next([]const u8, query.db.arena) orelse return error.MissingData;
+    const previous = try stmt.next([]const u8, query.db.arena);
 
     // Setup template data
     const image_view_opts: user_frontend.ImageVideoViewOptions = .{
@@ -18,6 +23,8 @@ pub fn filisurLatest(ctx: *tk.Context, db: *fr.Session) !void {
         .source = .filisur_new,
         .time = Timestamp.parseSimpleTime(latest) orelse return error.InvalidTimestamp,
         .path = latest[0..Timestamp.time_fmt.len].*,
+        .next = null,
+        .prev = if (previous) |prev| prev[0..Timestamp.time_fmt.len].* else null,
         .has_video = true,
     };
 

@@ -24,6 +24,19 @@ pub fn filisurCapture(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: S
     const capture_time = Timestamp.parseSimpleTime(path) orelse return error.NotFound;
     const capture_day = path[0.."YYYY-MM-DD".len];
 
+    // Get previous / next file entry
+    const seq = try db.raw(
+        \\SELECT * FROM (
+        \\    SELECT
+        \\        file,
+        \\        LAG(file)  OVER (ORDER BY file) AS prev_file,
+        \\        LEAD(file) OVER (ORDER BY file) AS next_file
+        \\    FROM filisur_capture
+        \\)
+        \\WHERE file = ?
+    , .{path})
+        .fetchOne(struct { file: []const u8, prev_file: ?[]const u8, next_file: ?[]const u8 }) orelse return error.NotFound;
+
     const extension_len = ".xyz".len;
     var image_name: [Timestamp.time_fmt.len + extension_len]u8 = undefined;
     image_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
@@ -46,6 +59,8 @@ pub fn filisurCapture(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: S
         .source = if (capture_time.year <= 2022) .filisur_old else .filisur_new,
         .time = capture_time,
         .path = path[0..Timestamp.time_fmt.len].*,
+        .prev = if (seq.prev_file) |prev| prev[0..Timestamp.time_fmt.len].* else null,
+        .next = if (seq.next_file) |next| next[0..Timestamp.time_fmt.len].* else null,
         .has_video = capture_time.instant().timestamp >= first_filisur_video.timestamp,
     };
 

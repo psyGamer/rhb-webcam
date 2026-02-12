@@ -45,9 +45,37 @@ pub fn archive(comptime location: Location) []const tk.Route {
                 .date = .{ .year = year orelse 0, .month = month orelse 0, .day = day orelse 0 },
 
                 .location = location,
+                .next = null,
+                .prev = null,
 
                 .elements = &.{},
             };
+
+            const seq = try db.raw(
+                \\SELECT * FROM (
+                \\    SELECT
+                \\        date,
+                \\        LAG(date)  OVER (ORDER BY date) AS prev_date,
+                \\        LEAD(date) OVER (ORDER BY date) AS next_date
+                \\    FROM (
+                \\        SELECT DISTINCT SUBSTR(file, 1, ?) AS date
+                \\        FROM filisur_capture
+                \\    )
+                \\)
+                \\WHERE date = ?
+            , .{
+                switch (archive_opts.type) {
+                    .full => "".len,
+                    .year => "YYYY".len,
+                    .month => "YYYY-MM".len,
+                    .day => "YYYY-MM-DD".len,
+                },
+                ctx.params.get(0) orelse "",
+            })
+                .fetchOne(struct { date: []const u8, prev_date: ?[]const u8, next_date: ?[]const u8 }) orelse return error.NotFound;
+
+            archive_opts.next = seq.next_date;
+            archive_opts.prev = seq.prev_date;
 
             if (year != null and month != null and day != null) {
                 const captures = try db.raw("SELECT file FROM " ++ Capture.sql_table_name, .{})
@@ -108,8 +136,31 @@ pub fn archive(comptime location: Location) []const tk.Route {
 
             try user_frontend.archiveView(ctx.res.writer(), archive_opts);
 
-            // Cache for a week
-            ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+            const today: tk.time.Date = .today();
+
+            // Check if the current view is still "reciving updtes"
+            const is_finished = b: {
+                if (today.year != year orelse break :b false) break :b true;
+                if (today.month != month orelse break :b false) break :b true;
+                if (today.day != day orelse break :b false) break :b true;
+                break :b false;
+            };
+
+            if (is_finished) {
+                // Cache for a week
+                ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+            } else {
+                switch (archive_opts.type) {
+                    // Cache for 5 minutes
+                    .day => ctx.res.header("Cache-Control", "public, max-age=300"),
+                    // Cache for 1 hour
+                    .month => ctx.res.header("Cache-Control", "public, max-age=3600"),
+                    // Cache for 1 day
+                    .year => ctx.res.header("Cache-Control", "public, max-age=86400"),
+                    // Cache for 3 days
+                    .full => ctx.res.header("Cache-Control", "public, max-age=259200"),
+                }
+            }
 
             ctx.res.body = ctx.res.buffer.written();
             ctx.res.content_type = .HTML;

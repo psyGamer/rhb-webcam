@@ -19,6 +19,7 @@ pub fn archiveView(writer: *std.Io.Writer, options: ArchiveViewOptions) !void {
 
 inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytype, page_args: anytype) !void {
     const today: Date = .today();
+    _ = today; // autofix
 
     try writer.print(
         \\<!DOCTYPE html>
@@ -33,21 +34,35 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\</head>
         \\<body>
         \\    <header>
-        \\        <h1>{s} Webcam Archiv</h1>
-        \\        <nav>
-        \\            <details class="archive">
-        \\                <summary>Archiv</summary>
+        \\        <h1>
+        \\            <details class="location-select">
+        \\                <summary>{s}</summary>
         \\                <div>
-        \\                    <a href="/{s}/archive/{d:0>4}-{d:0>2}-{d:0>2}">Tagesarchiv</a>
-        \\                    <a href="/{s}/archive/{d:0>4}-{d:0>2}">Monatsarchiv</a>
-        \\                    <a href="/{s}/archive/{d:0>4}">Jahresarchiv</a>
-        \\                    <a href="/{s}/archive">Langzeitarchiv</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
         \\                </div>
         \\            </details>
-        \\            <!-- <a href="/search">Suche</a> -->
+        \\            Webcam Archiv
+        \\        </h1>
+        \\        <nav>
+        \\            <a class="boxed-button" href="/filisur/archive">Archiv</a>
+        \\            <a class="boxed-button" href="/search">Suche</a>
         \\        </nav>
         \\    </header>
-    , .{ Location.names.get(location), @tagName(location), @as(u32, @intCast(today.year)), today.month, today.day, @tagName(location), @as(u32, @intCast(today.year)), today.month, @tagName(location), @as(u32, @intCast(today.year)), @tagName(location) });
+        \\
+    , .{
+        Location.names.get(location),
+        @tagName(Location.filisur),
+        Location.names.get(.filisur),
+        @tagName(Location.landwasser),
+        Location.names.get(.landwasser),
+        @tagName(Location.landquart),
+        Location.names.get(.landquart),
+        @tagName(Location.brusio),
+        Location.names.get(.brusio),
+    });
 
     try @call(.always_inline, page_render, page_args);
 
