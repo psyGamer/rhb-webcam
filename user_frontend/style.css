@@ -28,7 +28,7 @@ header {
 
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
 
     gap: 1rem;
     padding: 1rem 1.25rem;
@@ -129,6 +129,83 @@ header {
         align-items: center;
 
         gap: 0.6rem;
+    }
+
+    .hamburger {
+        display: none;
+
+        color: var(--accent-2);
+        background: #ffffff;
+        
+        text-decoration: none;
+        font-weight: 600;
+        
+        padding: 0;
+        border: 1px solid #ddd;
+        border-radius: var(--border-radius-small);
+
+        transition: all 150ms ease;
+
+        width: 2em;
+        height: 2em;
+
+        cursor: pointer;
+
+        &:hover {
+            background: #f0f4ff;
+            border-color: var(--accent-2);
+        }
+    }
+    .side-menu {
+        z-index: 100;
+
+        position: fixed;
+        display: flex;
+        flex-direction: column;
+
+        top: 0;
+        width: fit-content;
+        height: 100vh;
+
+        background: #dbdbdb;
+
+        transition: right 150ms ease;
+        
+        .close {
+            display: inline-block;
+            position: absolute;
+            cursor: pointer;
+
+            top: 0.5em;
+            right: 0.5em;
+
+            color: black;
+
+            width: 2em;
+            height: 2em;
+
+            border-radius: var(--border-radius-small);
+
+            transition: all 150ms ease;
+
+            &:hover {
+                background: #8d8d8d;
+                border-color: var(--accent-2);
+            }
+        }
+        .boxed-button {
+            margin: 1em 3em 0em 1em;
+        }
+
+        /* Closed state */
+        &[aria-pressed="false"] {
+            right: -100%;
+        }
+
+        /* Opened state */
+        &[aria-pressed="true"] {
+            right: 0;
+        }
     }
 }
 
@@ -604,6 +681,16 @@ header {
 
         button {
             width: 100% !important;
+        }
+    }
+}
+@media (max-width: 500px) {
+    header nav {
+        .boxed-button {
+            display: none;
+        }
+        .hamburger {
+            display: inline;
         }
     }
 }

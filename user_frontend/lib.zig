@@ -35,7 +35,7 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\<body>
         \\    <header>
         \\        <h1>
-        \\            <details class="location-select">
+        \\            <!-- <details class="location-select">
         \\                <summary>{s}</summary>
         \\                <div>
         \\                    <a href="/{s}">{s}</a>
@@ -43,13 +43,36 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
         \\                </div>
-        \\            </details>
-        \\            Webcam Archiv
+        \\            </details> -->
+        \\            Filisur Webcam Archiv
         \\        </h1>
         \\        <nav>
         \\            <a class="boxed-button" href="/filisur/archive">Archiv</a>
-        \\            <a class="boxed-button" href="/search">Suche</a>
+        \\            <!-- <a class="boxed-button" href="/search">Suche</a> -->
+        \\
+        \\            <a class="hamburger" onclick="showSideMenu(true)">
+        \\                <!-- Source: https://icongr.am/entypo/menu.svg -->
+        \\                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" fill="currentColor">
+        \\                    <g>
+        \\                        <path d="M16.4 9H3.6c-.552 0-.6.447-.6 1 0 .553.048 1 .6 1h12.8c.552 0 .6-.447.6-1 0-.553-.048-1-.6-1zm0 4H3.6c-.552 0-.6.447-.6 1 0 .553.048 1 .6 1h12.8c.552 0 .6-.447.6-1 0-.553-.048-1-.6-1zM3.6 7h12.8c.552 0 .6-.447.6-1 0-.553-.048-1-.6-1H3.6c-.552 0-.6.447-.6 1 0 .553.048 1 .6 1z"/>
+        \\                    </g>
+        \\                </svg>
+        \\            </a>
         \\        </nav>
+        \\
+        \\        <div class="side-menu" aria-pressed="false">
+        \\            <a class="close" onclick="showSideMenu(false)">
+        \\                <!-- Source: https://icongr.am/entypo/cross.svg -->
+        \\                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 20 20" fill="currentColor">
+        \\                    <g>
+        \\                        <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+        \\                    </g>
+        \\                </svg>
+        \\            </a>
+        \\
+        \\            <a class="boxed-button" href="/filisur/archive">Archiv</a>
+        \\            <!-- <a class="boxed-button" href="/search">Suche</a> -->
+        \\        </div>
         \\    </header>
         \\
     , .{
@@ -67,6 +90,13 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
     try @call(.always_inline, page_render, page_args);
 
     try writer.writeAll(
+        \\    <script>
+        \\        const sideMenu = document.querySelector('.side-menu');
+        \\
+        \\        function showSideMenu(state) {
+        \\            sideMenu.setAttribute('aria-pressed', state);
+        \\        }
+        \\    </script>
         \\</body>
         \\</html>
     );
