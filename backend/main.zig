@@ -48,6 +48,7 @@ const routes: []const tk.Route = &.{
             // CDN
             .get("/image/:path", cdnHandler(.filisur, .image)),
             .get("/video/:path", cdnHandler(.filisur, .video)),
+            .get("/thumb/:path", cdnHandler(.filisur, .thumnail)),
             // View
             .get("/", latest_view.filisurLatest),
             .get("/:path", capture_view.filisurCapture),
@@ -86,8 +87,11 @@ pub const Env = dotenv.Env(enum {
     /// Image sequences from the Brusio webcam
     WEBCAM_BRUSIO_IMAGE,
 
-    /// Videos from the filisur webcam
+    /// Videos from the Filisur webcam
     WEBCAM_FILISUR_VIDEO,
+
+    /// Thumbnail previews for the Filisur webcam
+    WEBCAM_FILISUR_THUMBNAIL,
 
     /// Deleted images / videos from the Filisur webcam
     DELETED_FILISUR_ARCHIVE,

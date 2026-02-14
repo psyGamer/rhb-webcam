@@ -23,6 +23,8 @@ if db_path is None:
 db = sqlite3.connect(db_path)
 db_cur = db.cursor()
 
+db_cur.execute("DELETE FROM filisur_capture")
+
 image_base = os.getenv("WEBCAM_FILISUR_IMAGE")
 video_base = os.getenv("WEBCAM_FILISUR_VIDEO")
 

@@ -7,7 +7,7 @@ const Location = @import("common").Location;
 
 const sendFile = @import("static.zig").sendFile;
 
-pub fn handler(comptime location: Location, comptime content_type: enum { image, video }) tk.Route {
+pub fn handler(comptime location: Location, comptime content_type: enum { image, video, thumnail }) tk.Route {
     if (location != .filisur and content_type != .image) {
         @compileError("Currently, only the Filisur webcam provides video content");
     }
@@ -28,6 +28,7 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
                 content_name[(content_name.len - extension_len)..][0..extension_len].* = switch (content_type) {
                     .image => ".png".*,
                     .video => ".mp4".*,
+                    .thumnail => ".jpg".*,
                 };
             }
 
@@ -37,6 +38,7 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
                 .filisur => switch (content_type) {
                     .image => .WEBCAM_FILISUR_IMAGE,
                     .video => .WEBCAM_FILISUR_VIDEO,
+                    .thumnail => .WEBCAM_FILISUR_THUMBNAIL,
                 },
                 .landwasser => .WEBCAM_LANDWASSER_IMAGE,
                 .landquart => .WEBCAM_LANDQUART_IMAGE,
@@ -59,6 +61,7 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
                 switch (content_type) {
                     .image => try sendFile(ctx, file, "image/png"),
                     .video => try sendFile(ctx, file, "video/mp4"),
+                    .thumnail => try sendFile(ctx, file, "image/jpeg"),
                 }
             }
         }

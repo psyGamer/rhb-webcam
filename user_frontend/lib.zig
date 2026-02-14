@@ -18,9 +18,6 @@ pub fn archiveView(writer: *std.Io.Writer, options: ArchiveViewOptions) !void {
 }
 
 inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytype, page_args: anytype) !void {
-    const today: Date = .today();
-    _ = today; // autofix
-
     try writer.print(
         \\<!DOCTYPE html>
         \\<html lang="en">
@@ -34,18 +31,20 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\</head>
         \\<body>
         \\    <header>
-        \\        <h1>
-        \\            <!-- <details class="location-select">
-        \\                <summary>{s}</summary>
-        \\                <div>
-        \\                    <a href="/{s}">{s}</a>
-        \\                    <a href="/{s}">{s}</a>
-        \\                    <a href="/{s}">{s}</a>
-        \\                    <a href="/{s}">{s}</a>
-        \\                </div>
-        \\            </details> -->
-        \\            Filisur Webcam Archiv
-        \\        </h1>
+        \\        <a href="/filisur">
+        \\            <h1>
+        \\                <!-- <details class="location-select">
+        \\                    <summary>{s}</summary>
+        \\                    <div>
+        \\                        <a href="/{s}">{s}</a>
+        \\                        <a href="/{s}">{s}</a>
+        \\                        <a href="/{s}">{s}</a>
+        \\                        <a href="/{s}">{s}</a>
+        \\                    </div>
+        \\                </details> -->
+        \\                Filisur Webcam Archiv
+        \\            </h1>
+        \\        </a>
         \\        <nav>
         \\            <a class="boxed-button" href="/filisur/archive">Archiv</a>
         \\            <!-- <a class="boxed-button" href="/search">Suche</a> -->

@@ -116,7 +116,7 @@ pub fn render(writer: *std.Io.Writer, opts: Options) !void {
 
         try writer.print(
             \\
-            \\                <img src="/{s}/image/{s}">
+            \\                <img src="/{s}/thumb/{s}">
             \\
             \\                <div class="overlay {s}">
             \\

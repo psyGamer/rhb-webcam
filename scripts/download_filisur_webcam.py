@@ -331,6 +331,7 @@ class SnippetCollection:
 
     file_name: str = None
     video_target_file: str = None
+    image_target_file: str = None
     thumbnail_target_file: str = None
 
     recording: bool = False
@@ -361,13 +362,17 @@ class SnippetCollection:
             video_target_dir = f"{os.getenv("WEBCAM_FILISUR_VIDEO")}/{now.strftime('%Y-%m-%d')}"
             if (not os.path.exists(video_target_dir)):
                 os.mkdir(video_target_dir)
-            thumbnail_target_dir = f"{os.getenv("WEBCAM_FILISUR_IMAGE")}/{now.strftime('%Y-%m-%d')}"
+            image_target_dir = f"{os.getenv("WEBCAM_FILISUR_IMAGE")}/{now.strftime('%Y-%m-%d')}"
+            if (not os.path.exists(image_target_dir)):
+                os.mkdir(image_target_dir)
+            thumbnail_target_dir = f"{os.getenv("WEBCAM_FILISUR_THUMBNAIL")}/{now.strftime('%Y-%m-%d')}"
             if (not os.path.exists(thumbnail_target_dir)):
                 os.mkdir(thumbnail_target_dir)
 
             self.file_name = now.strftime('%Y-%m-%d_%H-%M-%S')
             self.video_target_file = f"{video_target_dir}/{self.file_name}.mp4"
-            self.thumbnail_target_file = f"{thumbnail_target_dir}/{self.file_name}.png"
+            self.image_target_file = f"{image_target_dir}/{self.file_name}.png"
+            self.thumbnail_target_file = f"{thumbnail_target_dir}/{self.file_name}.jpg"
             self.start_time = time
             self.thumbnail_frame = frame.copy()
             self.thumbnail_timeout = timeout_frames
@@ -425,7 +430,17 @@ class SnippetCollection:
             "-movflags", "+faststart", "-c:v", "copy", self.video_target_file
         ])
 
-        cv2.imwrite(self.thumbnail_target_file, self.thumbnail_frame)
+        cv2.imwrite(self.image_target_file, self.thumbnail_frame)
+
+        processes.append(subprocess.Popen([
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-i", self.image_target_file,
+            "-vf", "crop=iw:iw*9/16:0:ih-iw*9/16,scale=-2:144",
+            "-q:v", "10",
+            "-frames:v", "1",
+            "-update", "1",
+            self.thumbnail_target_file
+        ]))
 
         global database
         global database_cursor
@@ -568,13 +583,17 @@ def run_analysis(queue: DataQueue):
                     video_target_dir = f"{os.getenv("WEBCAM_FILISUR_VIDEO")}/{now.strftime('%Y-%m-%d')}"
                     if (not os.path.exists(video_target_dir)):
                         os.mkdir(video_target_dir)
-                    thumbnail_target_dir = f"{os.getenv("WEBCAM_FILISUR_IMAGE")}/{now.strftime('%Y-%m-%d')}"
+                    image_target_dir = f"{os.getenv("WEBCAM_FILISUR_IMAGE")}/{now.strftime('%Y-%m-%d')}"
+                    if (not os.path.exists(image_target_dir)):
+                        os.mkdir(image_target_dir)
+                    thumbnail_target_dir = f"{os.getenv("WEBCAM_FILISUR_THUMBNAIL")}/{now.strftime('%Y-%m-%d')}"
                     if (not os.path.exists(thumbnail_target_dir)):
                         os.mkdir(thumbnail_target_dir)
 
                     collection.file_name = now.strftime('%Y-%m-%d_%H-%M-%S')
                     collection.video_target_file = f"{video_target_dir}/{collection.file_name}.mp4"
-                    collection.thumbnail_target_file = f"{thumbnail_target_dir}/{collection.file_name}.png"
+                    collection.image_target_file = f"{image_target_dir}/{collection.file_name}.png"
+                    collection.thumbnail_target_file = f"{thumbnail_target_dir}/{collection.file_name}.jpg"
                     
                 elif collection.thumbnail_timeout > 0:
                     collection.thumbnail_timeout -= 1
