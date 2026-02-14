@@ -210,10 +210,10 @@ header {
 }
 
 .main {
-    width: fit-content;
-
-    margin: 1rem auto;
     padding: 0 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 /* Title */
@@ -287,7 +287,7 @@ header {
     border: 1px solid rgba(16,24,40,0.04);
     border-radius: 10px;
     box-shadow: 0 8px 24px rgba(2,6,23,0.03);
-
+    
     .card {
         background: linear-gradient(180deg, #fff, #fbfdff);
 
@@ -557,17 +557,28 @@ header {
 
 /* Archive previews */
 .preview-grid {
+    width: 100%;
+
+    /* See https://chriskirknielsen.com/blog/css-grid-with-a-preferred-column-count */
+    --grid-cols: 7;
+	--grid-gap: 1rem;
+	--grid-size: 200px;
+
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    /* grid-template-rows: repeat(2, 1fr); */
-    grid-column-gap: 0px;
-    grid-row-gap: 0px; 
+	gap: var(--grid-gap);
+	grid-template-columns: repeat(auto-fill, minmax(max(var(--grid-size), calc((100% - var(--grid-gap) * (var(--grid-cols) - 1)) / var(--grid-cols))), 1fr));
+
+    justify-items: center;
+    padding: var(--grid-gap);
+    max-width: calc(var(--grid-cols) * (var(--grid-size) + var(--grid-gap)) + var(--grid-gap) + 2px);
 }
 .preview {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
+
+    width: 200px;
 
     color: white;
 
