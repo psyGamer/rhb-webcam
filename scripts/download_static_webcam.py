@@ -16,9 +16,11 @@ webcams = [
 ]
 
 last_hashes = ['' for _ in webcams]
+same_hashes = [False for _ in webcams]
 
 while True:
     try:
+        should_sleep = True
         for idx, webcam in enumerate(webcams):
             url = webcam["url"]
             save_dir = webcam["save_dir"]
@@ -31,18 +33,33 @@ while True:
 
             hash = hashlib.md5(res.content).hexdigest()
             if hash == last_hashes[idx]:
+                if not same_hashes[idx]:
+                    should_sleep = False
+                same_hashes[idx] = True
                 continue
 
-            image_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.jpg")
+            same_hashes[idx] = False
+            should_sleep = False
+
+            now = datetime.now()
+            image_time = now.strftime("%Y-%m-%d_%H-%M-%S.jpg")
+            image_dir = now.strftime("%Y-%m-%d")
+            
             print(f"New image for '{webcam["name"]}': {image_time}")
-            path = os.path.join(save_dir, image_time)
+            print(res.headers),
+            print(len(res.content))
+            dir = os.path.join(save_dir, image_dir)
+            path = os.path.join(dir, image_time)
+
+            os.makedirs(dir, exist_ok=True)
             with open(path, "wb") as f:
                 f.write(res.content)
 
             last_hashes[idx] = hash
 
-        time.sleep(update_interval)
+        if should_sleep:
+            time.sleep(update_interval)
     except Exception as e:
         print("An error occurred:", e)
-        time.sleep(update_interval)
+        # time.sleep(update_interval)
 

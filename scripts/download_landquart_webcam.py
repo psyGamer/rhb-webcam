@@ -31,8 +31,13 @@ while True:
             time.sleep(update_interval)
             continue
     
-        image_time = datetime.fromisoformat(feed_data["time"]).astimezone(tz).strftime("%Y-%m-%d_%H-%M-%S.jpg")
-        image_path = os.path.join(os.getenv("WEBCAM_LANDQUART_IMAGE"), image_time)
+        image_time = datetime.fromisoformat(feed_data["time"]).astimezone(tz)
+        image_dir  = image_time.strftime("%Y-%m-%d")
+        image_name = image_time.strftime("%Y-%m-%d_%H-%M-%S.jpg")
+
+        print(f"New image for 'Landquart': {image_name}")
+        dir = os.path.join(os.getenv("WEBCAM_LANDQUART_IMAGE"), image_dir)
+        path = os.path.join(dir, image_name)
 
         res = requests.get(image_url)
         if res.status_code != 200:
@@ -41,8 +46,8 @@ while True:
             time.sleep(update_interval)
             continue
 
-        print(f"New image 'Landquart': {image_time}")
-        with open(image_path, "wb") as f:
+        os.makedirs(dir, exist_ok=True)
+        with open(path, "wb") as f:
             f.write(res.content)
 
         prev_image = image_url

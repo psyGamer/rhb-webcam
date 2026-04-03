@@ -432,7 +432,7 @@ class SnippetCollection:
 
         cv2.imwrite(self.image_target_file, self.thumbnail_frame)
 
-        processes.append(subprocess.Popen([
+        subprocess.Popen([
             "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-i", self.image_target_file,
             "-vf", "crop=iw:iw*9/16:0:ih-iw*9/16,scale=-2:144",
@@ -440,7 +440,7 @@ class SnippetCollection:
             "-frames:v", "1",
             "-update", "1",
             self.thumbnail_target_file
-        ]))
+        ])
 
         global database
         global database_cursor
