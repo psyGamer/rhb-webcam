@@ -40,7 +40,7 @@ last_image_write = None
 database = None
 database_cursor = None
 
-preview_mode = True
+preview_mode = False
 debug_mode = False
 debug_log = False
 output_video = video_source == webcam_url or not debug_mode
