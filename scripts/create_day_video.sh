@@ -8,18 +8,50 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
+ARCHIVE_FILE_FILISUR=archive_files_filisur.txt
+ARCHIVE_FILE_MIRALAGO=archive_files_miralago.txt
+ARCHIVE_FILE_ILANZ=archive_files_ilanz.txt
+
 # Remove empty snippets
+
+mkdir -p ${WEBCAM_FILISUR_SNIPPET:?}/$1 ${WEBCAM_MIRALAGO_SNIPPET:?}/$1 ${WEBCAM_ILANZ_SNIPPET:?}/$1
+
 find ${WEBCAM_FILISUR_SNIPPET:?}/$1 -size 0 -print -delete
+find ${WEBCAM_MIRALAGO_SNIPPET:?}/$1 -size 0 -print -delete
+find ${WEBCAM_ILANZ_SNIPPET:?}/$1 -size 0 -print -delete
 
 # Collect all snippets of the day
-rm -f archive_files.txt
+rm -f ${ARCHIVE_FILE_FILISUR:?} ${ARCHIVE_FILE_MIRALAGO:?} ${ARCHIVE_FILE_ILANZ:?}
+
 ls ${WEBCAM_FILISUR_SNIPPET:?}/$1 | while read -r file ; do
-    echo "file '${WEBCAM_FILISUR_SNIPPET:?}/$1/$file'" >> archive_files.txt
+    echo "file '${WEBCAM_FILISUR_SNIPPET:?}/$1/$file'" >> ${ARCHIVE_FILE_FILISUR:?}
+done
+ls ${WEBCAM_MIRALAGO_SNIPPET:?}/$1 | while read -r file ; do
+    echo "file '${WEBCAM_MIRALAGO_SNIPPET:?}/$1/$file'" >> ${ARCHIVE_FILE_MIRALAGO:?}
+done
+ls ${WEBCAM_ILANZ_SNIPPET:?}/$1 | while read -r file ; do
+    echo "file '${WEBCAM_ILANZ_SNIPPET:?}/$1/$file'" >> ${ARCHIVE_FILE_ILANZ:?}
 done
 
 # Create mega-video for day
-ffmpeg -fflags +genpts -hwaccel vaapi -hwaccel_output_format vaapi \
-       -f concat -safe 0 -i archive_files.txt \
-       -movflags +faststart -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv -global_quality 40 -look_ahead 1 -preset veryfast -scenario videosurveillance ${WEBCAM_FILISUR_VIDEO:?}/$1/$1.mp4
+if [ -f ${ARCHIVE_FILE_MIRALAGO:?} ]; then
+    ffmpeg -fflags +genpts -hwaccel qsv -hwaccel_output_format qsv -extra_hw_frames 16 \
+           -r 60 -f concat -safe 0 -i ${ARCHIVE_FILE_MIRALAGO:?} \
+           -movflags +faststart -vf "vpp_qsv=format=nv12" -c:v h264_qsv ${WEBCAM_MIRALAGO_DAILY:?}/$1.mp4
+fi
+
+if [ -f ${ARCHIVE_FILE_ILANZ:?} ]; then
+    ffmpeg -fflags +genpts -hwaccel qsv -hwaccel_output_format qsv -extra_hw_frames 16 \
+           -r 60 -f concat -safe 0 -i ${ARCHIVE_FILE_ILANZ:?} \
+           -movflags +faststart -vf "vpp_qsv=format=nv12" -c:v h264_qsv ${WEBCAM_ILANZ_DAILY:?}/$1.mp4
+fi
+
+if [ -f ${ARCHIVE_FILE_FILISUR:?} ]; then
+    ffmpeg -fflags +genpts -hwaccel vaapi -hwaccel_output_format vaapi \
+           -f concat -safe 0 -i ${ARCHIVE_FILE_FILISUR:?} \
+           -movflags +faststart -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv -global_quality 40 -look_ahead 1 -preset veryfast -scenario videosurveillance ${WEBCAM_FILISUR_DAILY:?}/$1.mp4
+fi
 
 rm -rf ${WEBCAM_FILISUR_SNIPPET:?}/$1
+rm -rf ${WEBCAM_MIRALAGO_SNIPPET:?}/$1
+rm -rf ${WEBCAM_ILANZ_SNIPPET:?}/$1
