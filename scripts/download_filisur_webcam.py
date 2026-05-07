@@ -321,6 +321,14 @@ scan_areas = [
                       trigger_threshold=2.0, trigger_cap=4.0),
         ]
     ),
+    Area(
+        name="Gleis 3 - End",
+        points=[(130, 40), (130, 60), (160, 80), (170, 70), (170, 40), (145, 30)],
+        conditions=[
+            Condition(total_threshold=300, same_threshold=150, mask_delta_threshold=75, buffer_time=5.0, 
+                      trigger_threshold=2.0, trigger_cap=4.0),
+        ]
+    )
 ]
 
 
