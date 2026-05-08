@@ -3,6 +3,8 @@ import math
 import time
 import subprocess
 import requests
+import pytesseract
+import sqlite3
 
 from urllib.parse import urljoin
 from dataclasses import dataclass
@@ -18,30 +20,37 @@ import numpy as np
 import cv2
 
 livestream_url = "https://h058.video-stream-hosting.de/vocom-live/_definst_/smil:livestream.smil/chunklist_w1919586290_b5500000.m3u8"
+debug_files = [f"/media/Data/RhB_Webcam/Livestream/Snippet/media_w1919586290_b5500000_{i}.ts" for i in range(10832, 10892)]
+debug_files = []
 
 WIDTH = 1920
 HEIGHT = 1080
 FPS = 30
 
+SCALE_FACTOR = 1.0 / 2.0
+
 frame_size = WIDTH * HEIGHT * 3
 frame_time = 1.0 / FPS
 
 time_roi = (WIDTH - 400, 0, 400, 50)
+location_roi = (0, HEIGHT - 60, 325, 60)
 
 minimum_recording_duration = 4.0
 maximum_snippet_retention = 3600.0
 snippet_clear_interval = 100
 
-debug_mode = True
-preview_mode = debug_mode
-output_video = True
+debug_mode = len(debug_files) > 0
+preview_mode = True or debug_mode
+output_video = len(debug_files) == 0
 
 FileQueue = Queue(bytes)
 Process = subprocess.Popen
 
 
-active_video_segment = None
 snippet_collection = None
+
+database = None
+database_cursor = None
 
 
 @dataclass 
@@ -53,6 +62,8 @@ class SnippetCollection:
     video_target_file: str = None
     image_target_file: str = None
     thumbnail_target_file: str = None
+
+    location: Location = None
 
     recording: bool = False
     segments: list[str] = None
@@ -108,7 +119,7 @@ class SnippetCollection:
             self.segments = []
             return
             
-        print(f"== Stopped Recording at {datetime.now()} ==")
+        print(f"== Stopped Recording at {datetime.now()} ({time - self.start_time}s: {self.start_time}-{time}) ==")
         self.recording = False
 
 
@@ -144,10 +155,11 @@ class SnippetCollection:
             "-fflags", "+genpts",
             "-f", "concat", "-safe", "0",
             "-i", filelist,
+            "-an",
             "-movflags", "+faststart", "-c:v", "copy", self.video_target_file
         ])
 
-        cv2.imwrite(self.image_target_file, self.thumbnail_frame)
+        cv2.imwrite(self.image_target_file, self.thumbnail_frame, [cv2.IMWRITE_PNG_COMPRESSION, 9])
 
         subprocess.Popen([
             "ffmpeg", "-hide_banner", "-loglevel", "error",
@@ -159,22 +171,185 @@ class SnippetCollection:
             self.thumbnail_target_file
         ])
 
-        # global database
-        # global database_cursor
-        # database_cursor.execute(f"INSERT INTO filisur_capture (file) VALUES (\"{self.file_name}\")")
-        # database.commit()
+        global database
+        global database_cursor
+        database_cursor.execute(f"INSERT INTO livestream_capture (file, location) VALUES (\"{self.file_name}\", {(f'\"{self.location.names[0]}\"' if self.location else 'NULL')})")
+        database.commit()
 
         print(f" => {self.video_target_file}  ({len(self.pending_flush)} segments)")
         self.pending_flush =  []
 
+default_motion_threshold = 10_000 * (SCALE_FACTOR**2)
+default_mask = [(0, 0), (WIDTH - 1, 0), (WIDTH - 1, HEIGHT - 1), (0, HEIGHT - 1)]
+
+@dataclass
+class Location:
+    names: list[str]
+
+    masks: list[list[tuple[int, int]]] = None
+    motion_threshold: float = default_motion_threshold
+
+    mask_image: np.typing.NDArray[np.float32] = None
+
+    def __post_init__(self):
+        if self.masks is None:
+            self.masks = [default_mask]
+
+        self.mask_image = np.zeros(shape=(np.int32(HEIGHT * SCALE_FACTOR), np.int32(WIDTH * SCALE_FACTOR)), dtype=np.uint8)
+        for points in self.masks:
+            cv2.fillPoly(self.mask_image, [np.array([[np.int32(point[0] * SCALE_FACTOR), np.int32(point[1] * SCALE_FACTOR)] for point in points], np.int32)], color=1)
+
+# Stablini 12:08 / 12:58 / 13:49 / 15:00
+# Poschiavo 12:10
+# Bernina Suot 12:26 / 14:26 / 18:26
+# Landwasser 13:02 
+# Bergün 13:14
+# Ospizo 13:15
+# Morteratsch 13:38
+# Filisur (-> moritz) 14:00
+# Reichenau (-> chur) 14:38 
+# Filisur (-> chur) 14:43
+# Reichenau (-> thusis) 14:51
+# Alp Grüm 14:53
+
+locations = [
+    Location(
+        names=["Thusis", "Th us"],
+        masks=[
+            [(0, 1079), (350, 1079), (800, 60), (600, 60), (0, 250)],
+            [(1630, 999), (1919, 999), (1919, 500), (1060, 60), (950, 60)],
+        ],
+        motion_threshold=15_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Untervaz"],
+        masks=[
+            [(1300, 1079), (1499, 1079), (1499, 999), (1919, 999), (1919, 700), (1080, 520), (930, 520)],
+            [(1050, 1079), (850, 740), (680, 740), (400, 1079)],
+        ],
+        motion_threshold=5_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Bernina Cambrena"],
+        masks=[
+            [(730, 350), (1300, 365), (1370, 375), (1370, 330), (1300, 330), (730, 330)],
+            [(1380, 340), (1030, 370), (920, 470), (1040, 1079), (1760, 1079), (1580, 640), (1120, 475), (1380, 390)]
+        ],
+        motion_threshold=1_500 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Schnaus Strada", "Schnaus", "Strada"],
+        masks=[
+            [(1919, 600), (1919, 170), (1100, 140), (960, 150), (950, 200)],
+            [(900, 1079), (1499, 1079), (1499, 600), (800, 240), (600, 240)]
+        ],
+        motion_threshold=15_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Ospizio Bernina"],
+        masks=[
+            [(850, 1079), (1919, 1079), (1919, 880), (630, 250), (530, 250)]
+        ],
+        motion_threshold=8_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Poschiavo Pradei"],
+        masks=[default_mask],
+        motion_threshold=default_motion_threshold
+    ),
+    Location(
+        names=["Poschiavo"],
+        masks=[
+            [(0, 1079), (0, 770), (680, 520), (1380, 520), (1470, 1079)]
+        ],
+        motion_threshold=5_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Alp Grüm", "Alp"],
+        masks=[
+            [(610, 370), (690, 630), (950, 1079), (1919, 1079), (1919, 600), (720, 330), (610, 330)]
+        ],
+        motion_threshold=30_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Bergün"],
+        masks=[
+            [(300, 1079), (550, 160), (680, 130), (1060, 150), (1080, 300), (1919, 300), (1919, 1079)]
+        ],
+        motion_threshold=20_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Malans", "MEIERS", "MEIELS", "METETS", "METIEDE"],
+        masks=[
+            [(730, 1079), (570, 300), (660, 300), (1540, 1079)]
+        ],
+        motion_threshold=20_000 * (SCALE_FACTOR**2)
+    ),
+    # TODO
+    Location(
+        names=["Stablini", "VID-STAK-CAMM"],
+        masks=[
+            #[(1040, 300), (1260, 1079), (1919, 1079), (1919, 500)]
+            default_mask
+        ],
+        motion_threshold=default_motion_threshold
+    ),
+    Location(
+        names=["Sagliains"],
+        masks=[
+            # Richtung Scoul
+            [(0, 490), (830, 400), (830, 450), (0, 820)],
+            [(960, 400), (860, 520), (160, 1079), (800, 1079), (1040, 520), (1010, 400)],
+            # Richtung Samedan
+            [(1060, 310), (0, 460), (0, 900), (1060, 370)],
+            [(130, 1079), (1190, 320), (1250, 320), (1000, 1079)]
+        ],
+        motion_threshold=25_000 * (SCALE_FACTOR**2)
+    ),
+    # TODO
+    Location(
+        names=["Landwasserviadukt"],
+        masks=[
+            default_mask
+        ],
+        motion_threshold=default_motion_threshold
+    ),
+    Location(
+        names=["Ems Werk", "Ems", "Werk"],
+        masks=[
+            [(0, 1079), (0, 630), (1420, 760), (1360, 1079)],
+            [(950, 440), (1460, 440), (1500, 320), (1400, 320), (1040, 330)],
+            [(650, 400), (1130, 330), (1130, 400)],
+        ],
+        motion_threshold=20_000 * (SCALE_FACTOR**2)
+    ),
+
+    # Ignored locations which have non-static cameras
+    Location(
+        names=["Samedan", "San;;dan", "Saniedan"],
+    ),
+    Location(
+        names=["Bever"],
+    ),
+    Location(
+        names=["Tiefencastel"],
+    ),
+    Location(
+        names=["Filisur"],
+    ),
+]
 
 def run_analysis(capture: Process):
     analysis_interval = int(1.0 * FPS)
     next_analysis = analysis_interval
 
+    ocr_interval = 5
+    next_ocr = ocr_interval
+
     curr_ad_level = 0
     curr_motion_level = 0
     curr_recording = False
+    curr_location = None
 
     total_ad = 0
     total_non_ad = 0
@@ -183,9 +358,25 @@ def run_analysis(capture: Process):
 
     prev_gray = None
 
+    debug_paused = False
+
     try:
         while True:
-            time.sleep(1/60.0)
+            if preview_mode:
+                time.sleep(1/60.0)
+
+            key = cv2.waitKey(1) & 0xFF
+            if debug_paused and key == ord("o"):
+                debug_paused = False
+                print("UNPAUSE")
+            elif not debug_paused and key == ord("p"):
+                debug_paused = True
+                print("PAUSE")
+            elif key == ord("q"):
+                break
+
+            if debug_paused and key != 27:
+                continue
 
             raw = capture.stdout.read(frame_size)
             if len(raw) != frame_size:
@@ -195,32 +386,24 @@ def run_analysis(capture: Process):
 
             next_analysis -= 1
             if next_analysis > 0:
-                cv2.imshow("Normal", np.frombuffer(raw, np.uint8).reshape((HEIGHT, WIDTH, 3)))
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
-                continue
-
-            next_analysis = analysis_interval
+                if not preview_mode:
+                    continue
 
             curr_image = np.frombuffer(raw, np.uint8).reshape((HEIGHT, WIDTH, 3))
-            curr_gray = cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY)
+
+            if next_analysis > 0:
+                cv2.imshow("Normal", curr_image)
+                continue
+
+            curr_gray = cv2.resize(cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY), None, fx=SCALE_FACTOR, fy=SCALE_FACTOR)
             curr_gray = cv2.equalizeHist(curr_gray)
+            # curr_gray = cv2.GaussianBlur(curr_gray, (5, 5), 0)
 
             if prev_gray is None:
                 prev_gray = curr_gray
                 continue
 
-            # Motion detection
-            diff_gray = cv2.absdiff(curr_gray, prev_gray)
-            diff_gray[diff_gray < 50] = 0
-
-            diff_blur = cv2.GaussianBlur(diff_gray, (5, 5), 0)
-            _, diff_thresh = cv2.threshold(diff_blur, 25, 255, cv2.THRESH_BINARY)
-            opening_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            diff_thresh = cv2.morphologyEx(diff_thresh, cv2.MORPH_OPEN, opening_kernel)
-            diff_sum = np.sum(diff_thresh) / 255
-
-            curr_motion = diff_sum > 10_000
+            next_analysis = analysis_interval
 
             # AD detection
             time_img = curr_image[time_roi[1]:time_roi[1]+time_roi[3], time_roi[0]:time_roi[0]+time_roi[2]]
@@ -231,29 +414,96 @@ def run_analysis(capture: Process):
             time_masks = (diff_time_rg < 30) & (diff_time_rb < 30) & (diff_time_gb > 30)
             _, time_thresh = cv2.threshold(time_img, 240, 255, cv2.THRESH_BINARY)
             time_edges = cv2.Canny(time_thresh, 80, 160)
-            #time_density = np.mean(cv2.bitwise_and(time_edges, time_masks))
             time_density = np.mean(time_edges)
 
             curr_ad = time_density < 9 or time_density > 35
 
+            # Location detection
+            next_ocr -= 1
+            if next_ocr <= 0 and not curr_ad:
+                location_img = curr_image[location_roi[1]:location_roi[1]+location_roi[3], location_roi[0]:location_roi[0]+location_roi[2]]
+                #location_img = cv2.GaussianBlur(location_img, (3, 3), 0)
+                location_r, location_g, location_b = cv2.split(location_img)
+                diff_location_rg = cv2.absdiff(location_r, location_g)
+                diff_location_rb = cv2.absdiff(location_r, location_b)
+                diff_location_gb = cv2.absdiff(location_g, location_b)
+                location_masks = (diff_location_rg < 20) & (diff_location_rb < 15) & (diff_location_gb > 15)
+                _, location_thresh = cv2.threshold(location_img, 200, 255, cv2.THRESH_BINARY)
+                location_density = np.mean(location_thresh)
+
+                dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+                location_thresh = cv2.morphologyEx(location_thresh, cv2.MORPH_DILATE, dilate_kernel)
+
+                # cv2.imshow("LocationROI", location_thresh)
+
+                location_text = ""
+                try:
+                    location_text = pytesseract.image_to_string(location_thresh, config="--psm 6 -l deu").strip()
+                    print("OCR Location Text:", location_text, location_density)
+                except Exception as e:
+                    print(f"OCR error: {e}")
+                    pass
+
+                found_location = None
+                for location in locations:
+                    for name in location.names:
+                        if name in location_text:
+                            found_location = location
+                            break
+                    
+                    if found_location is not None:
+                        break
+                
+                # Avoid updating to 'None' if OCR fails
+                if found_location is not None or curr_ad_level > 0:
+                    curr_location = found_location
+                    next_ocr = ocr_interval
+                elif location_density < 8:
+                    curr_location = None
+                    next_ocr = ocr_interval
+
+
+            # Motion detection
+            diff_gray = cv2.absdiff(curr_gray, prev_gray)
+            diff_gray = cv2.GaussianBlur(diff_gray, (5, 5), 0)
+            if curr_location is not None:
+                diff_gray[(diff_gray * curr_location.mask_image) < 20] = 0
+            else:
+                diff_gray[diff_gray < 50] = 0
+
+            _, diff_thresh = cv2.threshold(diff_gray, 25, 255, cv2.THRESH_BINARY)
+            open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+            diff_thresh = cv2.morphologyEx(diff_thresh, cv2.MORPH_OPEN, open_kernel)
+            diff_sum = np.sum(diff_thresh) / 255
+
+            curr_motion = diff_sum > default_motion_threshold
+            if curr_location is not None:
+                curr_motion = diff_sum > location.motion_threshold
+
             # Recording
             if curr_motion:
-                curr_motion_level = min(curr_motion_level + 1, 5)
+                curr_motion_level = max(min(curr_motion_level + (-0.5 if curr_ad else 1.0), 5), 0)
             else:
-                curr_motion_level = max(curr_motion_level - 1, 0)
+                curr_motion_level = max(curr_motion_level - ( 2.0 if curr_ad else 1.0), 0)
             
             if curr_ad:
                 curr_ad_level = min(curr_ad_level + 1, 5)
                 total_ad += 1
             else:
+                if curr_ad_level > 0:
+                    next_ocr = 0 # Trigger rescan
+
                 curr_ad_level = max(curr_ad_level - 1, 0)
                 total_non_ad += 1
 
             global snippet_collection
-            print(f"Motion: {curr_motion_level} ({diff_sum})  AD: {curr_ad_level} ({time_density})  Recording: {snippet_collection.recording} || {total_ad} AD frames, {total_non_ad} non-AD frames: %.2f%% AD" % (total_ad / (total_ad + total_non_ad + 1e-6) * 100))
+            print(f"Motion: {curr_motion_level} ({diff_sum})  AD: {curr_ad_level} ({time_density})  Recording: {snippet_collection.recording} || Location: {(curr_location.names[0] if curr_location else 'Unknown')} || {total_ad} AD frames, {total_non_ad} non-AD frames: %.2f%% AD" % (total_ad / (total_ad + total_non_ad + 1e-6) * 100))
 
             if snippet_collection.recording:
-                if snippet_collection.thumbnail_timeout == 0:
+                if snippet_collection.location is None:
+                    snippet_collection.location = curr_location
+
+                if snippet_collection.thumbnail_timeout == 0 and not curr_ad:
                     snippet_collection.thumbnail_frame = curr_image.copy()
                     snippet_collection.thumbnail_timeout = -1
 
@@ -276,54 +526,41 @@ def run_analysis(capture: Process):
 
             if snippet_collection.recording and (curr_motion_level <= 1 or curr_ad_level >= 2):
                 snippet_collection.stop_recording(total_frames / FPS)
-            elif not snippet_collection.recording and curr_motion_level >= 3 and curr_ad_level < 3 and curr_motion_level > curr_ad_level:
+            elif not snippet_collection.recording and curr_motion_level >= 3 and curr_ad_level < 3 and curr_motion_level > curr_ad_level + 1:
                 snippet_collection.start_recording(curr_image, timeout_frames=3, time=total_frames / FPS, should_buffer_start=True)
+                snippet_collection.location = curr_location
 
-            cv2.imshow("Normal", curr_image)
-            cv2.imshow("GrayDiff", diff_gray)
-            cv2.imshow("GrayBlur", diff_blur)
-            cv2.imshow("Motion", diff_thresh)
-            cv2.imshow("TimeROI", time_edges.astype(np.uint8))
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            if preview_mode:
+                cv2.imshow("Normal", curr_image)
+                if debug_mode:
+                    if curr_location is not None:
+                        cv2.imshow("GrayBlur", cv2.bitwise_and(curr_gray, curr_gray, mask=curr_location.mask_image))
+                    else:
+                        cv2.imshow("GrayBlur", curr_gray)
 
+                    cv2.imshow("GrayDiff", diff_gray)
+                    cv2.imshow("Motion", diff_thresh)
+                    # cv2.imshow("TimeROI", time_edges.astype(np.uint8))
+                
             prev_gray = curr_gray
     except:
         raise
 
-# Motion:
-# * Einfahrt Samedan (13920): 2000-3000
-# * Ausfahrt Tiefencastel (13840): 10000-120000
-# * CamSwap (13870): >700000
-# * Ausfahrt Bergün->Filisur (13877): 10000-100000
 
 def run_capture(capture: Process):
+    if len(debug_files) > 0:
+        for file in debug_files:
+            with open(file, "rb") as f:
+                data = f.read()
 
-    # files = [
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13817.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13818.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13819.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13820.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13821.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13822.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13823.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13824.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13825.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13826.ts",
-    #     "/tmp/RhB_Cache/Livestream/media_w1919586290_b5500000_13827.ts",
-    # ]
-    # for file in files:
-    #     with open(file, "rb") as f:
-    #         data = f.read()
+                capture.stdin.write(data)
+                capture.stdin.flush()
+        return
 
-    #         global active_video_segment
-    #         active_video_segment = file
-
-    #         capture.stdin.write(data)
-    #         capture.stdin.flush()
-
-    # return
-
+    global database
+    global database_cursor
+    database = sqlite3.connect(os.getenv("DATABASE_PROD_PATH"))
+    database_cursor = database.cursor()
 
     target_dir = os.getenv("LIVESTREAM_SNIPPET")
     if (not os.path.exists(target_dir)):
@@ -363,7 +600,7 @@ def run_capture(capture: Process):
                             stat = os.stat(f"{target_dir}/{file}")
                             if time.time() - stat.st_mtime > maximum_snippet_retention:
                                 print(f"Removing old snippet {file} ({time.time() - stat.st_mtime}s old)")
-                                os.remove(f"{target_dir}/{file}")
+                                #os.remove(f"{target_dir}/{file}")
                         snippet_until_clear = snippet_clear_interval
 
                 downloaded_urls.append(ts_url)
@@ -373,24 +610,17 @@ def run_capture(capture: Process):
             print("Restarting capture...")
 
 
-def capture_worker(capture: Process):
-    while True:
-        print(f"Attemping capture on {datetime.now()}")
-        try:
-            run_capture(capture)
-        except Exception as e:
-            print(f"Unexpected exception: {e}")
-
-
 def main():
     load_dotenv()
 
     if preview_mode:
         cv2.namedWindow("Normal", cv2.WINDOW_NORMAL)
+    if debug_mode:
         cv2.namedWindow("GrayDiff", cv2.WINDOW_NORMAL)
         cv2.namedWindow("GrayBlur", cv2.WINDOW_NORMAL)
         cv2.namedWindow("Motion", cv2.WINDOW_NORMAL)
-        cv2.namedWindow("TimeROI", cv2.WINDOW_NORMAL)
+        # cv2.namedWindow("TimeROI", cv2.WINDOW_NORMAL)
+        # cv2.namedWindow("LocationROI", cv2.WINDOW_NORMAL)
 
     capture = subprocess.Popen([
         "ffmpeg", "-hide_banner", "-loglevel", "error",
