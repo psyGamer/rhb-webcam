@@ -50,6 +50,17 @@ const routes: []const tk.Route = &.{
         .get("/", latest_view.filisurLatest),
         .get("/:path", capture_view.filisurCapture),
     }),
+    .group("/" ++ @tagName(Location.livestream), &.{
+        // Archive
+        .group("/archive", archiveView(.livestream)),
+        // CDN
+        .get("/image/:path", cdnHandler(.livestream, .image)),
+        .get("/video/:path", cdnHandler(.livestream, .video)),
+        .get("/thumb/:path", cdnHandler(.livestream, .thumnail)),
+        // View
+        .get("/", latest_view.livestreamLatest),
+        .get("/:path", capture_view.livestreamCapture),
+    }),
 
     // Static
     .get("/style.css", if (builtin.mode == .Debug)
@@ -80,12 +91,18 @@ pub const Env = dotenv.Env(enum {
     WEBCAM_LANDQUART_IMAGE,
     /// Image sequences from the Brusio webcam
     WEBCAM_BRUSIO_IMAGE,
+    /// Images from the Livestream webcam
+    LIVESTREAM_IMAGE,
 
     /// Videos from the Filisur webcam
     WEBCAM_FILISUR_VIDEO,
+    /// Videos from the Livestream webcam
+    LIVESTREAM_VIDEO,
 
     /// Thumbnail previews for the Filisur webcam
     WEBCAM_FILISUR_THUMBNAIL,
+    /// Thumbnail previews for the Livestream webcam
+    LIVESTREAM_THUMBNAIL,
 
     /// Deleted images / videos from the Filisur webcam
     DELETED_FILISUR_ARCHIVE,

@@ -37,6 +37,12 @@ pub const FilisurCapture = struct {
 
     file: []const u8,
 };
+pub const LivestreamCapture = struct {
+    pub const sql_table_name = "livestream_capture";
+
+    file: []const u8,
+    location: []const u8,
+};
 pub const LandwasserCapture = struct {
     pub const sql_table_name = "landwasser_capture";
 
@@ -70,7 +76,7 @@ pub extern fn sqlite3_open_v2(filename: [*c]const u8, ppDb: [*c]?*sqlite3, flags
 
 /// Load the appropriate database from disk
 pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
-    const filepath = try allocator.dupeZ(u8, env.key(if (builtin.mode == .Debug) .DATABASE_DEV_PATH else .DATABASE_PROD_PATH));
+    const filepath = try allocator.dupeZ(u8, env.key(if (builtin.mode == .Debug) .DATABASE_PROD_PATH else .DATABASE_PROD_PATH));
     defer allocator.free(filepath);
 
     const SQLITE_OPEN_READWRITE: c_int = 0x00000002;
@@ -156,6 +162,12 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
             \\);
         , .{ Capture.sql_table_name, Timestamp.time_fmt.len }), .{});
     }
+    try db.exec(std.fmt.comptimePrint(
+        \\CREATE TABLE IF NOT EXISTS {s}(
+        \\    file     VARCHAR({d}) PRIMARY KEY,
+        \\    location TEXT
+        \\);
+    , .{ LivestreamCapture.sql_table_name, Timestamp.time_fmt.len }), .{});
     try db.exec(std.fmt.comptimePrint(
         \\CREATE TABLE IF NOT EXISTS {s}(
         \\    file        VARCHAR({d}) PRIMARY KEY,

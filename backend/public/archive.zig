@@ -20,6 +20,7 @@ const DatabaseLocomotive = @import("../database.zig").Locomotive;
 pub fn archive(comptime location: Location) []const tk.Route {
     const Capture = switch (location) {
         .filisur => @import("../database.zig").FilisurCapture,
+        .livestream => @import("../database.zig").LivestreamCapture,
         else => @compileError("TODO"),
     };
 
@@ -51,7 +52,7 @@ pub fn archive(comptime location: Location) []const tk.Route {
                 .elements = &.{},
             };
 
-            const seq = try db.raw(
+            const seq = try db.raw(std.fmt.comptimePrint(
                 \\SELECT * FROM (
                 \\    SELECT
                 \\        date,
@@ -59,11 +60,11 @@ pub fn archive(comptime location: Location) []const tk.Route {
                 \\        LEAD(date) OVER (ORDER BY date) AS next_date
                 \\    FROM (
                 \\        SELECT DISTINCT SUBSTR(file, 1, ?) AS date
-                \\        FROM filisur_capture
+                \\        FROM {s}
                 \\    )
                 \\)
                 \\WHERE date = ?
-            , .{
+            , .{Capture.sql_table_name}), .{
                 switch (archive_opts.type) {
                     .full => "".len,
                     .year => "YYYY".len,
