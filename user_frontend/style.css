@@ -200,7 +200,7 @@ header {
                 border-color: var(--accent-2);
             }
         }
-        .boxed-button {
+        .location-select, .boxed-button {
             margin: 1em 3em 0em 1em;
         }
 
@@ -704,6 +704,9 @@ header {
 }
 @media (max-width: 500px) {
     header nav {
+        .location-select {
+            display: none;
+        }
         .boxed-button {
             display: none;
         }

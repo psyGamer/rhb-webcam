@@ -27,26 +27,27 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\
         \\    <link rel="stylesheet" href="/style.css">
         \\
-        \\    <title>Filisur Webcam Archiv</title>
+        \\    <title>{s} Webcam Archiv</title>
         \\</head>
         \\<body>
         \\    <header>
-        \\        <a href="/filisur">
+        \\        <a href="/{s}">
         \\            <h1>
-        \\                <!-- <details class="location-select">
-        \\                    <summary>{s}</summary>
-        \\                    <div>
-        \\                        <a href="/{s}">{s}</a>
-        \\                        <a href="/{s}">{s}</a>
-        \\                        <a href="/{s}">{s}</a>
-        \\                        <a href="/{s}">{s}</a>
-        \\                    </div>
-        \\                </details> -->
-        \\                Filisur Webcam Archiv
+        \\                {s} Webcam Archiv
         \\            </h1>
         \\        </a>
         \\        <nav>
-        \\            <a class="boxed-button" href="/filisur/archive">Archiv</a>
+        \\            <details class="location-select">
+        \\                <summary>{s}</summary>
+        \\                <div>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                </div>
+        \\            </details>
+        \\            <a class="boxed-button" href="/{s}/archive">Archiv</a>
         \\            <!-- <a class="boxed-button" href="/search">Suche</a> -->
         \\
         \\            <a class="hamburger" onclick="showSideMenu(true)">
@@ -69,12 +70,26 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\                </svg>
         \\            </a>
         \\
-        \\            <a class="boxed-button" href="/filisur/archive">Archiv</a>
+        \\            <details class="location-select">
+        \\                <summary>{s}</summary>
+        \\                <div>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
+        \\                </div>
+        \\            </details>
+        \\            <a class="boxed-button" href="/{s}/archive">Archiv</a>
         \\            <!-- <a class="boxed-button" href="/search">Suche</a> -->
         \\        </div>
         \\    </header>
         \\
     , .{
+        Location.names.get(location),
+        @tagName(location),
+        Location.names.get(location),
+
         Location.names.get(location),
         @tagName(Location.filisur),
         Location.names.get(.filisur),
@@ -84,6 +99,24 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         Location.names.get(.landquart),
         @tagName(Location.brusio),
         Location.names.get(.brusio),
+        @tagName(Location.livestream),
+        Location.names.get(.livestream),
+
+        @tagName(location),
+
+        Location.names.get(location),
+        @tagName(Location.filisur),
+        Location.names.get(.filisur),
+        @tagName(Location.landwasser),
+        Location.names.get(.landwasser),
+        @tagName(Location.landquart),
+        Location.names.get(.landquart),
+        @tagName(Location.brusio),
+        Location.names.get(.brusio),
+        @tagName(Location.livestream),
+        Location.names.get(.livestream),
+
+        @tagName(location),
     });
 
     try @call(.always_inline, page_render, page_args);
