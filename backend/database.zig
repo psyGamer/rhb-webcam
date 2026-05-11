@@ -56,7 +56,6 @@ pub const LandquartCapture = struct {
 pub const BrusioCapture = struct {
     pub const sql_table_name = "brusio_capture";
 
-    sequence_id: u32,
     file: []const u8,
 };
 pub const Analytics = struct {
@@ -155,7 +154,7 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
         \\);
     , .{ Locomotive.sql_table_name, Train.sql_table_name }), .{});
 
-    inline for (&.{ FilisurCapture, LandwasserCapture, LandquartCapture }) |Capture| {
+    inline for (&.{ FilisurCapture, LandwasserCapture, LandquartCapture, BrusioCapture }) |Capture| {
         try db.exec(std.fmt.comptimePrint(
             \\CREATE TABLE IF NOT EXISTS {s}(
             \\    file VARCHAR({d}) PRIMARY KEY
@@ -168,12 +167,6 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
         \\    location TEXT
         \\);
     , .{ LivestreamCapture.sql_table_name, Timestamp.time_fmt.len }), .{});
-    try db.exec(std.fmt.comptimePrint(
-        \\CREATE TABLE IF NOT EXISTS {s}(
-        \\    file        VARCHAR({d}) PRIMARY KEY,
-        \\    sequence_id INTEGER NOT NULL
-        \\);
-    , .{ BrusioCapture.sql_table_name, Timestamp.time_fmt.len }), .{});
 
     const max_method_name = comptime b: {
         var max = 0;

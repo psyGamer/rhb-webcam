@@ -21,7 +21,7 @@ const cdnHandler = @import("cdn.zig").handler;
 const requireAuth = @import("auth.zig").requireAuth;
 const withAnalytics = @import("analytics.zig").withAnalytics;
 
-const latest_view = @import("public/latest.zig");
+const latestView = @import("public/latest.zig").latest;
 const capture_view = @import("public/capture.zig");
 const archiveView = @import("public/archive.zig").archive;
 
@@ -47,8 +47,38 @@ const routes: []const tk.Route = &.{
         .get("/video/:path", cdnHandler(.filisur, .video)),
         .get("/thumb/:path", cdnHandler(.filisur, .thumnail)),
         // View
-        .get("/", latest_view.filisurLatest),
+        .get("/", latestView(.filisur)),
         .get("/:path", capture_view.filisurCapture),
+    }),
+    .group("/" ++ @tagName(Location.landwasser), &.{
+        // Archive
+        .group("/archive", archiveView(.landwasser)),
+        // CDN
+        .get("/image/:path", cdnHandler(.landwasser, .image)),
+        .get("/thumb/:path", cdnHandler(.landwasser, .thumnail)),
+        // View
+        .get("/", latestView(.landwasser)),
+        .get("/:path", capture_view.capture(.landwasser)),
+    }),
+    .group("/" ++ @tagName(Location.landquart), &.{
+        // Archive
+        .group("/archive", archiveView(.landquart)),
+        // CDN
+        .get("/image/:path", cdnHandler(.landquart, .image)),
+        .get("/thumb/:path", cdnHandler(.landquart, .thumnail)),
+        // View
+        .get("/", latestView(.landquart)),
+        .get("/:path", capture_view.capture(.landquart)),
+    }),
+    .group("/" ++ @tagName(Location.brusio), &.{
+        // Archive
+        .group("/archive", archiveView(.brusio)),
+        // CDN
+        .get("/image/:path", cdnHandler(.brusio, .image)),
+        .get("/thumb/:path", cdnHandler(.brusio, .thumnail)),
+        // View
+        .get("/", latestView(.brusio)),
+        .get("/:path", capture_view.capture(.brusio)),
     }),
     .group("/" ++ @tagName(Location.livestream), &.{
         // Archive
@@ -58,8 +88,8 @@ const routes: []const tk.Route = &.{
         .get("/video/:path", cdnHandler(.livestream, .video)),
         .get("/thumb/:path", cdnHandler(.livestream, .thumnail)),
         // View
-        .get("/", latest_view.livestreamLatest),
-        .get("/:path", capture_view.livestreamCapture),
+        .get("/", latestView(.livestream)),
+        .get("/:path", capture_view.capture(.livestream)),
     }),
 
     // Static
@@ -101,6 +131,12 @@ pub const Env = dotenv.Env(enum {
 
     /// Thumbnail previews for the Filisur webcam
     WEBCAM_FILISUR_THUMBNAIL,
+    /// Thumbnail previews for the Landwasser webcam
+    WEBCAM_LANDWASSER_THUMBNAIL,
+    /// Thumbnail previews for the Landquart webcam
+    WEBCAM_LANDQUART_THUMBNAIL,
+    /// Thumbnail previews for the Brusio webcam
+    WEBCAM_BRUSIO_THUMBNAIL,
     /// Thumbnail previews for the Livestream webcam
     LIVESTREAM_THUMBNAIL,
 
@@ -262,7 +298,7 @@ pub fn main() !void {
 
     var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool) }, null);
     var server: tk.Server = try .init(allocator, server_routes, .{
-        .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
+        .listen = .{ .hostname = "0.0.0.0", .port = 9000 },
         .injector = &injector,
     });
     defer server.deinit();

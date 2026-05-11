@@ -11,6 +11,7 @@ requests
 
 # download_livestream_webcam.py
 pytesseract
+imagehash
 
 # parse_locomotive_allocations.py
 pdfplumber

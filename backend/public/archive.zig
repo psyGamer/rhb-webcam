@@ -20,8 +20,10 @@ const DatabaseLocomotive = @import("../database.zig").Locomotive;
 pub fn archive(comptime location: Location) []const tk.Route {
     const Capture = switch (location) {
         .filisur => @import("../database.zig").FilisurCapture,
+        .landwasser => @import("../database.zig").LandwasserCapture,
+        .landquart => @import("../database.zig").LandquartCapture,
+        .brusio => @import("../database.zig").BrusioCapture,
         .livestream => @import("../database.zig").LivestreamCapture,
-        else => @compileError("TODO"),
     };
 
     const H = struct {

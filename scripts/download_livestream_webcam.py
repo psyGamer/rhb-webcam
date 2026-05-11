@@ -49,7 +49,6 @@ Process = subprocess.Popen
 
 
 snippet_collection = None
-image_hashes = None
 
 database = None
 database_cursor = None
@@ -183,7 +182,7 @@ class SnippetCollection:
                 "-f", "concat", "-safe", "0",
                 "-i", filelist,
                 "-movflags", "+faststart", 
-                "-c:v", "copy", 
+                "-c:v", "hevc_qsv", 
                 "-global_quality", "40",
                 "-preset", "veryslow",
                 "-scenario", "videosurveillance",
@@ -461,11 +460,6 @@ def run_analysis(capture: Process):
     prev_gray = None
 
     debug_paused = False
-
-    global image_hashes
-    image_hashes = {}
-    image_hash = imagehash.dhash(Image.open("/media/Data/Code/rhb-webcam/scripts/livestream_references/reichenau_ost_tag.jpg"))
-    image_hashes[image_hash] = "/media/Data/Code/rhb-webcam/scripts/livestream_references/reichenau_ost.jpg"
 
     try:
         while True:

@@ -4,11 +4,13 @@ const fr = @import("fridge");
 const zeit = @import("zeit");
 
 const user_frontend = @import("user-frontend");
+const database = @import("../database.zig");
 
 const Timestamp = @import("common").Timestamp;
 const Clock = @import("common").Schedule.Clock;
 const Direction = @import("common").Direction;
 const Locomotive = @import("common").Locomotive;
+const Location = @import("common").Location;
 
 const Env = @import("../main.zig").Env;
 const Schedules = @import("../main.zig").Schedules;
@@ -234,51 +236,88 @@ pub fn filisurCapture(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: S
     ctx.responded = true;
 }
 
-/// Show a specific capture from the Livestream webcam
-pub fn livestreamCapture(ctx: *tk.Context, db: *fr.Session, env: *Env, path: []const u8) !void {
-    const capture_time = Timestamp.parseSimpleTime(path) orelse return error.NotFound;
-    const capture_day = path[0.."YYYY-MM-DD".len];
-
-    // Get previous / next file entry
-    const seq = try db.raw(
-        \\SELECT * FROM (
-        \\    SELECT
-        \\        file, location,
-        \\        LAG(file)  OVER (ORDER BY file) AS prev_file,
-        \\        LEAD(file) OVER (ORDER BY file) AS next_file
-        \\    FROM livestream_capture
-        \\)
-        \\WHERE file = ?
-    , .{path})
-        .fetchOne(struct { file: []const u8, location: ?[]const u8, prev_file: ?[]const u8, next_file: ?[]const u8 }) orelse return error.NotFound;
-
-    const extension_len = ".xyz".len;
-    var image_name: [Timestamp.time_fmt.len + extension_len]u8 = undefined;
-    image_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
-    image_name[(image_name.len - extension_len)..][0..extension_len].* = ".png".*;
-
-    const image_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.LIVESTREAM_IMAGE), capture_day, &image_name });
-
-    // Validate image exists
-    try std.fs.cwd().access(image_path, .{});
-
-    // Setup template data
-    const image_view_opts: user_frontend.ImageVideoViewOptions = .{
-        .title = "Archiv Aufnahme",
-        .source = .livestream,
-        .time = capture_time,
-        .path = path[0..Timestamp.time_fmt.len].*,
-        .prev = if (seq.prev_file) |prev| prev[0..Timestamp.time_fmt.len].* else null,
-        .next = if (seq.next_file) |next| next[0..Timestamp.time_fmt.len].* else null,
-        .has_video = capture_time.instant().timestamp >= first_filisur_video.timestamp,
+/// Show a specific capture from a webcam
+pub fn capture(comptime location: Location) tk.Route {
+    const Capture = switch (location) {
+        .filisur => @compileError("Use dedicated filisurCapture route instead"),
+        .landwasser => database.LandwasserCapture,
+        .landquart => database.LandquartCapture,
+        .brusio => database.BrusioCapture,
+        .livestream => database.LivestreamCapture,
     };
 
-    try user_frontend.imageVideoView(ctx.res.writer(), image_view_opts);
+    const H = struct {
+        pub fn handle(ctx: *tk.Context) anyerror!void {
+            const path = ctx.params.get(0) orelse return error.MissingParamter;
+            const db = try ctx.injector.get(*fr.Session);
+            const env = try ctx.injector.get(*Env);
 
-    // Cache for a week
-    ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+            const capture_time = Timestamp.parseSimpleTime(path) orelse return error.NotFound;
+            const capture_day = path[0.."YYYY-MM-DD".len];
 
-    ctx.res.body = ctx.res.buffer.written();
-    ctx.res.content_type = .HTML;
-    ctx.responded = true;
+            // Get previous / next file entry
+            const seq = try db.raw(std.fmt.comptimePrint(
+                \\SELECT * FROM (
+                \\    SELECT
+                \\        file,
+                \\        LAG(file)  OVER (ORDER BY file) AS prev_file,
+                \\        LEAD(file) OVER (ORDER BY file) AS next_file
+                \\    FROM {s}
+                \\)
+                \\WHERE file = ?
+            , .{Capture.sql_table_name}), .{path})
+                .fetchOne(struct { file: []const u8, prev_file: ?[]const u8, next_file: ?[]const u8 }) orelse return error.NotFound;
+
+            const extension_len = ".xyz".len;
+            var image_name: [Timestamp.time_fmt.len + extension_len]u8 = undefined;
+            image_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
+            image_name[(image_name.len - extension_len)..][0..extension_len].* = switch (location) {
+                .filisur, .livestream => ".png".*,
+                .landwasser, .landquart, .brusio => ".jpg".*,
+            };
+
+            const image_path = try std.fs.path.join(ctx.allocator, &.{ env.key(switch (location) {
+                .filisur => unreachable,
+                .landwasser => .WEBCAM_LANDWASSER_IMAGE,
+                .landquart => .WEBCAM_LANDQUART_IMAGE,
+                .brusio => .WEBCAM_BRUSIO_IMAGE,
+                .livestream => .LIVESTREAM_IMAGE,
+            }), capture_day, &image_name });
+
+            // Validate image exists
+            try std.fs.cwd().access(image_path, .{});
+
+            // Setup template data
+            const image_view_opts: user_frontend.ImageVideoViewOptions = .{
+                .title = "Archiv Aufnahme",
+                .source = switch (location) {
+                    .filisur => unreachable,
+                    .landwasser => .landwasser,
+                    .landquart => .landquart,
+                    .brusio => .brusio,
+                    .livestream => .livestream,
+                },
+                .time = capture_time,
+                .path = path[0..Timestamp.time_fmt.len].*,
+                .prev = if (seq.prev_file) |prev| prev[0..Timestamp.time_fmt.len].* else null,
+                .next = if (seq.next_file) |next| next[0..Timestamp.time_fmt.len].* else null,
+                .has_video = switch (location) {
+                    .filisur => unreachable,
+                    .livestream => true,
+                    .landwasser, .landquart, .brusio => false,
+                },
+            };
+
+            try user_frontend.imageVideoView(ctx.res.writer(), image_view_opts);
+
+            // Cache for a week
+            ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
+
+            ctx.res.body = ctx.res.buffer.written();
+            ctx.res.content_type = .HTML;
+            ctx.responded = true;
+        }
+    };
+
+    return .{ .handler = &H.handle };
 }

@@ -14,9 +14,24 @@ output_dir = None
 if location == "filisur":
     input_dir = os.getenv("WEBCAM_FILISUR_IMAGE")
     output_dir = os.getenv("WEBCAM_FILISUR_THUMBNAIL")
+elif location == "landwasser":
+    input_dir = os.getenv("WEBCAM_LANDWASSER_IMAGE")
+    output_dir = os.getenv("WEBCAM_LANDWASSER_THUMBNAIL")
+elif location == "landquart":
+    input_dir = os.getenv("WEBCAM_LANDQUART_IMAGE")
+    output_dir = os.getenv("WEBCAM_LANDQUART_THUMBNAIL")
+elif location == "brusio":
+    input_dir = os.getenv("WEBCAM_BRUSIO_IMAGE")
+    output_dir = os.getenv("WEBCAM_BRUSIO_THUMBNAIL")
+elif location == "livestream":
+    input_dir = os.getenv("LIVESTREAM_IMAGE")
+    output_dir = os.getenv("LIVESTREAM_THUMBNAIL")
 else:
     print("Invalid location!")
     exit(1)
+
+# input_dir = "/media/Laptop" + input_dir
+# output_dir = "/media/Laptop" + output_dir
 
 processes = []
 
@@ -29,6 +44,9 @@ for day_name in os.listdir(input_dir):
 
         if os.path.exists(output_path):
             continue
+
+        while len(processes) > 50:
+            processes.pop().wait()
         
         print(f"Converting '{file_name}'...")
         processes.append(subprocess.Popen([
