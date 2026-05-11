@@ -19,9 +19,7 @@ const staticFile = static.staticFile;
 const cdnHandler = @import("cdn.zig").handler;
 
 const requireAuth = @import("auth.zig").requireAuth;
-
-const CacheStorage = @import("cache.zig").Storage;
-const withCache = @import("cache.zig").withCache;
+const withAnalytics = @import("analytics.zig").withAnalytics;
 
 const latest_view = @import("public/latest.zig");
 const capture_view = @import("public/capture.zig");
@@ -41,18 +39,16 @@ const routes: []const tk.Route = &.{
     .get("/", tk.redirect("/filisur")),
 
     // Views
-    .provide(db.Pool.getSession, &.{
-        .group("/" ++ @tagName(Location.filisur), &.{
-            // Archive
-            .group("/archive", archiveView(.filisur)),
-            // CDN
-            .get("/image/:path", cdnHandler(.filisur, .image)),
-            .get("/video/:path", cdnHandler(.filisur, .video)),
-            .get("/thumb/:path", cdnHandler(.filisur, .thumnail)),
-            // View
-            .get("/", latest_view.filisurLatest),
-            .get("/:path", capture_view.filisurCapture),
-        }),
+    .group("/" ++ @tagName(Location.filisur), &.{
+        // Archive
+        .group("/archive", archiveView(.filisur)),
+        // CDN
+        .get("/image/:path", cdnHandler(.filisur, .image)),
+        .get("/video/:path", cdnHandler(.filisur, .video)),
+        .get("/thumb/:path", cdnHandler(.filisur, .thumnail)),
+        // View
+        .get("/", latest_view.filisurLatest),
+        .get("/:path", capture_view.filisurCapture),
     }),
 
     // Static
@@ -71,9 +67,7 @@ const routes: []const tk.Route = &.{
         .get("/video.js", staticFile(admin_dist_dir ++ "video.js", .immutable)),
         .get("/meta.js", staticFile(admin_dist_dir ++ "meta.js", .immutable)),
         // API
-        .provide(db.Pool.getSession, &.{
-            .group("/api", @import("categorize.zig").routes),
-        }),
+        .group("/api", @import("categorize.zig").routes),
     })}),
 };
 
@@ -247,12 +241,10 @@ pub fn main() !void {
     try db.load(&db_pool, allocator, &env);
     defer db_pool.deinit();
 
-    // Setup storage for caching requests
-    var req_strorage: CacheStorage = .empty;
-    defer req_strorage.deinit(allocator);
+    const server_routes = &.{withAnalytics(routes)};
 
-    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool), .ref(&req_strorage) }, null);
-    var server: tk.Server = try .init(allocator, &.{tk.logger(.{}, routes)}, .{
+    var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool) }, null);
+    var server: tk.Server = try .init(allocator, server_routes, .{
         .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
         .injector = &injector,
     });
