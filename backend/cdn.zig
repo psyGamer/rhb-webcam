@@ -8,8 +8,8 @@ const Location = @import("common").Location;
 const sendFile = @import("static.zig").sendFile;
 
 pub fn handler(comptime location: Location, comptime content_type: enum { image, video, thumnail }) tk.Route {
-    if (location != .filisur and content_type != .image) {
-        @compileError("Currently, only the Filisur webcam provides video content");
+    if (location != .filisur and location != .livestream and content_type != .image) {
+        @compileError("Currently, only the Filisur and Livestream webcams provide video content");
     }
 
     const H = struct {
@@ -43,6 +43,11 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
                 .landwasser => .WEBCAM_LANDWASSER_IMAGE,
                 .landquart => .WEBCAM_LANDQUART_IMAGE,
                 .brusio => .WEBCAM_BRUSIO_IMAGE,
+                .livestream => switch (content_type) {
+                    .image => .LIVESTREAM_IMAGE,
+                    .video => .LIVESTREAM_VIDEO,
+                    .thumnail => .LIVESTREAM_THUMBNAIL,
+                },
             });
             const day_dir = path[0..Timestamp.date_fmt.len];
 

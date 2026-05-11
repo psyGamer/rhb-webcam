@@ -8,6 +8,7 @@ pub const Source = enum {
     landwasser,
     landquart,
     brusio,
+    livestream,
 
     pub const attribution: std.EnumArray(Source, []const u8) = .init(.{
         .filisur_new =
@@ -25,6 +26,9 @@ pub const Source = enum {
         .brusio =
         \\Quelle: © <a href="https://www.webcam.valtline.it/brusiog.htm">Valtline</a>・<a href="https://www.webcam.valtline.it/brusio.jpg">Live Bild</a>
         ,
+        .livestream =
+        \\Quelle: © <a href="https://rhb.ch">Rhätische Bahn AG</a>・<a href="https://www.rhb.ch/de/aktuelles/livestream">Livestream</a>
+        ,
     });
 
     pub const location: std.EnumArray(Source, Location) = .init(.{
@@ -33,5 +37,6 @@ pub const Source = enum {
         .landwasser = .landwasser,
         .landquart = .landquart,
         .brusio = .brusio,
+        .livestream = .livestream,
     });
 };
