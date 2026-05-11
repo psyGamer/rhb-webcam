@@ -53,6 +53,16 @@ pub const BrusioCapture = struct {
     sequence_id: u32,
     file: []const u8,
 };
+pub const Analytics = struct {
+    pub const sql_table_name = "analytics";
+
+    id: usize,
+
+    path: []const u8,
+    method: []const u8,
+    status: u16,
+    date: []const u8,
+};
 
 pub const struct_sqlite3 = opaque {};
 pub const sqlite3 = struct_sqlite3;
@@ -152,4 +162,23 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
         \\    sequence_id INTEGER NOT NULL
         \\);
     , .{ BrusioCapture.sql_table_name, Timestamp.time_fmt.len }), .{});
+
+    const max_method_name = comptime b: {
+        var max = 0;
+        for (std.meta.fieldNames(std.http.Method)) |name| {
+            max = @max(max, name.len);
+        }
+        break :b max;
+    };
+    try db.exec(std.fmt.comptimePrint(
+        \\CREATE TABLE IF NOT EXISTS {s}(
+        \\    id INTEGER PRIMARY KEY,
+        \\
+        \\    path   TEXT NOT NULL,
+        \\    method VARCHAR({d}) NOT NULL,
+        \\    status INTEGER NOT NULL,
+        \\
+        \\    time DATETIME DEFAULT CURRENT_TIMESTAMP
+        \\);
+    , .{ Analytics.sql_table_name, max_method_name }), .{});
 }
