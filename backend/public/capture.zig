@@ -40,13 +40,7 @@ pub fn filisurCapture(ctx: *tk.Context, db: *fr.Session, env: *Env, schedules: S
     const extension_len = ".xyz".len;
     var image_name: [Timestamp.time_fmt.len + extension_len]u8 = undefined;
     image_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
-    if (capture_time.year <= 2022) {
-        // Manfred Luckmann archive
-        image_name[(image_name.len - extension_len)..][0..extension_len].* = ".jpg".*;
-    } else {
-        // Our archive
-        image_name[(image_name.len - extension_len)..][0..extension_len].* = ".png".*;
-    }
+    image_name[(image_name.len - extension_len)..][0..extension_len].* = ".png".*;
 
     const image_path = try std.fs.path.join(ctx.allocator, &.{ env.key(.WEBCAM_FILISUR_IMAGE), capture_day, &image_name });
 

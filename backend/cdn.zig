@@ -15,22 +15,16 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
     const H = struct {
         pub fn handle(ctx: *tk.Context) anyerror!void {
             const path = ctx.params.get(0) orelse return error.MissingParamter;
-            const time = Timestamp.parseSimpleTime(path) orelse return error.NotFound;
 
             const extension_len = ".xyz".len;
             var content_name: [Timestamp.time_fmt.len + extension_len]u8 = undefined;
             content_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
 
-            if (location == .filisur and content_type == .image and time.year <= 2022) {
-                // Manfred Luckmann archive uses JPEG images
-                content_name[(content_name.len - extension_len)..][0..extension_len].* = ".jpg".*;
-            } else {
-                content_name[(content_name.len - extension_len)..][0..extension_len].* = switch (content_type) {
-                    .image => ".png".*,
-                    .video => ".mp4".*,
-                    .thumnail => ".jpg".*,
-                };
-            }
+            content_name[(content_name.len - extension_len)..][0..extension_len].* = switch (content_type) {
+                .image => ".png".*,
+                .video => ".mp4".*,
+                .thumnail => ".jpg".*,
+            };
 
             const env = try ctx.injector.get(*Env);
 
@@ -54,15 +48,10 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
             // All videos are static and therefore all images too
             ctx.res.header("Cache-Control", "public, max-age=604800, immutable");
 
-            if (location == .filisur and content_type == .image and time.year <= 2022) {
-                // Manfred Luckmann archive uses JPEG images
-                try sendFile(ctx, file, "image/jpeg");
-            } else {
-                switch (content_type) {
-                    .image => try sendFile(ctx, file, "image/png"),
-                    .video => try sendFile(ctx, file, "video/mp4"),
-                    .thumnail => try sendFile(ctx, file, "image/jpeg"),
-                }
+            switch (content_type) {
+                .image => try sendFile(ctx, file, "image/png"),
+                .video => try sendFile(ctx, file, "video/mp4"),
+                .thumnail => try sendFile(ctx, file, "image/jpeg"),
             }
         }
     };
