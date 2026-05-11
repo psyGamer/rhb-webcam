@@ -2,12 +2,15 @@
 python-dotenv
 
 # download_webcam.py
-opencv-python
-opencv-contrib-python
+opencv-python==4.12.0.88
+opencv-contrib-python==4.12.0.88
 pillow
 
 # download_landquart_webcam.py
 requests
+
+# download_livestream_webcam.py
+pytesseract
 
 # parse_locomotive_allocations.py
 pdfplumber

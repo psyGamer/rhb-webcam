@@ -5,6 +5,7 @@ import subprocess
 import requests
 import pytesseract
 import sqlite3
+import imagehash
 
 from urllib.parse import urljoin
 from dataclasses import dataclass
@@ -13,6 +14,7 @@ from typing import Generic, TypeVar
 from collections import deque
 from threading import Thread
 from queue import Queue, Empty
+from PIL import Image
 
 from dotenv import load_dotenv
 
@@ -20,7 +22,6 @@ import numpy as np
 import cv2
 
 livestream_url = "https://h058.video-stream-hosting.de/vocom-live/_definst_/smil:livestream.smil/chunklist_w1919586290_b5500000.m3u8"
-debug_files = [f"/media/Data/RhB_Webcam/Livestream/Snippet/media_w1919586290_b5500000_{i}.ts" for i in range(10832, 10892)]
 debug_files = []
 
 WIDTH = 1920
@@ -40,7 +41,7 @@ maximum_snippet_retention = 3600.0
 snippet_clear_interval = 100
 
 debug_mode = len(debug_files) > 0
-preview_mode = True or debug_mode
+preview_mode = False or debug_mode
 output_video = len(debug_files) == 0
 
 FileQueue = Queue(bytes)
@@ -48,6 +49,7 @@ Process = subprocess.Popen
 
 
 snippet_collection = None
+image_hashes = None
 
 database = None
 database_cursor = None
@@ -150,14 +152,56 @@ class SnippetCollection:
             for segment in self.pending_flush:
                 f.write(f"file '{segment}'\n")
 
-        process = subprocess.Popen([
-            "ffmpeg", "-hide_banner", "-loglevel", "error",
-            "-fflags", "+genpts",
-            "-f", "concat", "-safe", "0",
-            "-i", filelist,
-            "-an",
-            "-movflags", "+faststart", "-c:v", "copy", self.video_target_file
-        ])
+        hwaccel = os.getenv("HARDWARE_ACCELERATION")
+        if hwaccel == "nvidia":
+            subprocess.Popen([
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-fflags", "+genpts",
+                "-hwaccel", "cuda",
+                "-hwaccel_output_format", "cuda",
+                "-f", "concat", "-safe", "0",
+                "-i", filelist,
+                "-movflags", "+faststart", 
+                "-c:v", "hevc_nvenc", 
+                "-cq", "41",
+                "-preset", "p7",
+                "-level", "6.2",
+                "-tier", "high",
+                "-bf", "4",
+                "-spatial_aq", "1",
+                "-temporal_aq", "1",
+                "-rc", "vbr",
+                "-multipass", "fullres",
+                "-tf_level", "4",
+                "-an",
+                self.video_target_file
+            ])
+        elif hwaccel == "intel":
+            subprocess.Popen([
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-fflags", "+genpts",
+                "-f", "concat", "-safe", "0",
+                "-i", filelist,
+                "-movflags", "+faststart", 
+                "-c:v", "copy", 
+                "-global_quality", "40",
+                "-preset", "veryslow",
+                "-scenario", "videosurveillance",
+                "-bf", "8",
+                "-an",
+                self.video_target_file
+            ])
+        else:
+            subprocess.Popen([
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-fflags", "+genpts",
+                "-f", "concat", "-safe", "0",
+                "-i", filelist,
+                "-movflags", "+faststart", 
+                "-c:v", "copy", 
+                "-an",
+                self.video_target_file
+            ])
 
         cv2.imwrite(self.image_target_file, self.thumbnail_frame, [cv2.IMWRITE_PNG_COMPRESSION, 9])
 
@@ -186,33 +230,68 @@ default_mask = [(0, 0), (WIDTH - 1, 0), (WIDTH - 1, HEIGHT - 1), (0, HEIGHT - 1)
 class Location:
     names: list[str]
 
-    masks: list[list[tuple[int, int]]] = None
     motion_threshold: float = default_motion_threshold
 
+    masks: list[list[tuple[int, int]]] = None
     mask_image: np.typing.NDArray[np.float32] = None
+
+    reference_threshold: float = 15.0
+    reference_images: list[str] = None
+    reference_hashes: set[imagehash.ImageHash] = None
 
     def __post_init__(self):
         if self.masks is None:
             self.masks = [default_mask]
+        if self.reference_images is None:
+            self.reference_images = []
 
         self.mask_image = np.zeros(shape=(np.int32(HEIGHT * SCALE_FACTOR), np.int32(WIDTH * SCALE_FACTOR)), dtype=np.uint8)
         for points in self.masks:
             cv2.fillPoly(self.mask_image, [np.array([[np.int32(point[0] * SCALE_FACTOR), np.int32(point[1] * SCALE_FACTOR)] for point in points], np.int32)], color=1)
 
-# Stablini 12:08 / 12:58 / 13:49 / 15:00
-# Poschiavo 12:10
-# Bernina Suot 12:26 / 14:26 / 18:26
-# Landwasser 13:02 
-# Bergün 13:14
-# Ospizo 13:15
-# Morteratsch 13:38
-# Filisur (-> moritz) 14:00
-# Reichenau (-> chur) 14:38 
-# Filisur (-> chur) 14:43
-# Reichenau (-> thusis) 14:51
-# Alp Grüm 14:53
+        self.reference_hashes = set()
+        for image in self.reference_images:
+            image_path = f"{os.path.dirname(os.path.realpath(__file__))}/livestream_references/{image}"
+            self.reference_hashes.add(imagehash.dhash(Image.open(image_path)))
+
+# * Alp Grüm: False positive mit bernina pause
 
 locations = [
+    ## "Volatile"/"Nameless" cameras which require hash detection
+    Location(
+        names=["Reichenau-Tamins (Ost)"],
+        reference_images=["reichenau_ost_tag.jpg", "reichenau_ost_nacht.jpg"],
+        masks=[
+            [(0, 0), (630, 0), (630, 250), (800, 250), (800, 80), (1180, 80), (1210, 200), (1919, 370), (1919, 1079), (0, 1079)]
+        ],
+        motion_threshold=15_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Reichenau-Tamins (West)"],
+        reference_images=["reichenau_west_morgen.jpg", "reichenau_west_sonne.jpg", "reichenau_west_tag.jpg"],
+        masks=[
+            [(0, 450), (910, 240), (950, 100), (1919, 100), (1919, 1079), (0, 1079)]
+        ],
+        motion_threshold=15_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Filisur (Ost)"],
+        reference_images=["filisur_ost_tag.jpg", "filisur_ost_nachmittag.jpg", "filisur_ost_abend.jpg", "filisur_ost_sonne.jpg", "filisur_ost_schatten.jpg"],
+        masks=[
+            [(0, 600), (870, 310), (1410, 310), (1400, 1079), (0, 1079)]
+        ],
+        motion_threshold=1_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Filisur (West)"],
+        reference_images=["filisur_west_morgen.jpg", "filisur_west_tag.jpg", "filisur_west_abend.jpg"],
+        masks=[
+            [(0, 480), (920, 480), (650, 1079), (0, 1079)]
+        ],
+        motion_threshold=15_000 * (SCALE_FACTOR**2)
+    ),
+
+    ## "Noisy" cameras which require masking to avoid false positives
     Location(
         names=["Thusis", "Th us"],
         masks=[
@@ -232,10 +311,17 @@ locations = [
     Location(
         names=["Bernina Cambrena"],
         masks=[
-            [(730, 350), (1300, 365), (1370, 375), (1370, 330), (1300, 330), (730, 330)],
+            #[(730, 350), (1300, 365), (1370, 375), (1370, 330), (1300, 330), (730, 330)],
             [(1380, 340), (1030, 370), (920, 470), (1040, 1079), (1760, 1079), (1580, 640), (1120, 475), (1380, 390)]
         ],
-        motion_threshold=1_500 * (SCALE_FACTOR**2)
+        motion_threshold=3_000 * (SCALE_FACTOR**2)
+    ),
+    Location(
+        names=["Bernina Suot", "Suot"],
+        masks=[
+            [(0, 1000), (1210, 350), (1919, 380), (1919, 1079), (0, 1079)],
+        ],
+        motion_threshold=10_000 * (SCALE_FACTOR**2)
     ),
     Location(
         names=["Schnaus Strada", "Schnaus", "Strada"],
@@ -253,7 +339,7 @@ locations = [
         motion_threshold=8_000 * (SCALE_FACTOR**2)
     ),
     Location(
-        names=["Poschiavo Pradei"],
+        names=["Poschiavo Pradei", "Pradei"],
         masks=[default_mask],
         motion_threshold=default_motion_threshold
     ),
@@ -287,7 +373,7 @@ locations = [
     ),
     # TODO
     Location(
-        names=["Stablini", "VID-STAK-CAMM"],
+        names=["Stablini", "VID-STAK-CAMM", "VID", "STAK", "CAMM"],
         masks=[
             #[(1040, 300), (1260, 1079), (1919, 1079), (1919, 500)]
             default_mask
@@ -323,8 +409,15 @@ locations = [
         ],
         motion_threshold=20_000 * (SCALE_FACTOR**2)
     ),
+    Location(
+        names=["Morteratsch"],
+        masks=[
+            [(460, 1079), (350, 80), (1690, 780), (1690, 1079)]
+        ],
+        motion_threshold=30_000 * (SCALE_FACTOR**2)
+    ),
 
-    # Ignored locations which have non-static cameras
+    ## Remaining cameras which just exist to track the location
     Location(
         names=["Samedan", "San;;dan", "Saniedan"],
     ),
@@ -336,6 +429,15 @@ locations = [
     ),
     Location(
         names=["Filisur"],
+    ),
+    Location(
+        names=["St. Moritz", "Moritz"],
+    ),
+    Location(
+        names=["Bernina Lagalb", "Lagalb"],
+    ),
+    Location(
+        names=["Cavaglia"],
     ),
 ]
 
@@ -360,6 +462,11 @@ def run_analysis(capture: Process):
 
     debug_paused = False
 
+    global image_hashes
+    image_hashes = {}
+    image_hash = imagehash.dhash(Image.open("/media/Data/Code/rhb-webcam/scripts/livestream_references/reichenau_ost_tag.jpg"))
+    image_hashes[image_hash] = "/media/Data/Code/rhb-webcam/scripts/livestream_references/reichenau_ost.jpg"
+
     try:
         while True:
             if preview_mode:
@@ -368,10 +475,8 @@ def run_analysis(capture: Process):
             key = cv2.waitKey(1) & 0xFF
             if debug_paused and key == ord("o"):
                 debug_paused = False
-                print("UNPAUSE")
             elif not debug_paused and key == ord("p"):
                 debug_paused = True
-                print("PAUSE")
             elif key == ord("q"):
                 break
 
@@ -396,7 +501,7 @@ def run_analysis(capture: Process):
                 continue
 
             curr_gray = cv2.resize(cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY), None, fx=SCALE_FACTOR, fy=SCALE_FACTOR)
-            curr_gray = cv2.equalizeHist(curr_gray)
+            # curr_gray = cv2.equalizeHist(curr_gray)
             # curr_gray = cv2.GaussianBlur(curr_gray, (5, 5), 0)
 
             if prev_gray is None:
@@ -421,38 +526,47 @@ def run_analysis(capture: Process):
             # Location detection
             next_ocr -= 1
             if next_ocr <= 0 and not curr_ad:
-                location_img = curr_image[location_roi[1]:location_roi[1]+location_roi[3], location_roi[0]:location_roi[0]+location_roi[2]]
-                #location_img = cv2.GaussianBlur(location_img, (3, 3), 0)
-                location_r, location_g, location_b = cv2.split(location_img)
-                diff_location_rg = cv2.absdiff(location_r, location_g)
-                diff_location_rb = cv2.absdiff(location_r, location_b)
-                diff_location_gb = cv2.absdiff(location_g, location_b)
-                location_masks = (diff_location_rg < 20) & (diff_location_rb < 15) & (diff_location_gb > 15)
-                _, location_thresh = cv2.threshold(location_img, 200, 255, cv2.THRESH_BINARY)
-                location_density = np.mean(location_thresh)
-
-                dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-                location_thresh = cv2.morphologyEx(location_thresh, cv2.MORPH_DILATE, dilate_kernel)
-
-                # cv2.imshow("LocationROI", location_thresh)
-
-                location_text = ""
-                try:
-                    location_text = pytesseract.image_to_string(location_thresh, config="--psm 6 -l deu").strip()
-                    print("OCR Location Text:", location_text, location_density)
-                except Exception as e:
-                    print(f"OCR error: {e}")
-                    pass
-
+                # Compare hash against known cameras
+                curr_hash = imagehash.dhash(Image.fromarray(curr_image))
                 found_location = None
                 for location in locations:
-                    for name in location.names:
-                        if name in location_text:
+                    for location_hash in location.reference_hashes:
+                        if abs(location_hash - curr_hash) < location.reference_threshold:
                             found_location = location
                             break
                     
                     if found_location is not None:
                         break
+
+                if found_location is None:
+                    location_img = curr_image[location_roi[1]:location_roi[1]+location_roi[3], location_roi[0]:location_roi[0]+location_roi[2]]
+                    #location_img = cv2.GaussianBlur(location_img, (3, 3), 0)
+                    location_r, location_g, location_b = cv2.split(location_img)
+                    diff_location_rg = cv2.absdiff(location_r, location_g)
+                    diff_location_rb = cv2.absdiff(location_r, location_b)
+                    diff_location_gb = cv2.absdiff(location_g, location_b)
+                    location_masks = (diff_location_rg < 20) & (diff_location_rb < 15) & (diff_location_gb > 15)
+                    _, location_thresh = cv2.threshold(location_img, 200, 255, cv2.THRESH_BINARY)
+                    location_density = np.mean(location_thresh)
+
+                    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+                    location_thresh = cv2.morphologyEx(location_thresh, cv2.MORPH_DILATE, dilate_kernel)
+
+                    location_text = ""
+                    try:
+                        location_text = pytesseract.image_to_string(location_thresh, config="--psm 6 -l deu").strip()
+                    except Exception as e:
+                        print(f"OCR error: {e}")
+                        pass
+
+                    for location in locations:
+                        for name in location.names:
+                            if name in location_text:
+                                found_location = location
+                                break
+                        
+                        if found_location is not None:
+                            break
                 
                 # Avoid updating to 'None' if OCR fails
                 if found_location is not None or curr_ad_level > 0:
@@ -497,13 +611,12 @@ def run_analysis(capture: Process):
                 total_non_ad += 1
 
             global snippet_collection
-            print(f"Motion: {curr_motion_level} ({diff_sum})  AD: {curr_ad_level} ({time_density})  Recording: {snippet_collection.recording} || Location: {(curr_location.names[0] if curr_location else 'Unknown')} || {total_ad} AD frames, {total_non_ad} non-AD frames: %.2f%% AD" % (total_ad / (total_ad + total_non_ad + 1e-6) * 100))
 
             if snippet_collection.recording:
                 if snippet_collection.location is None:
                     snippet_collection.location = curr_location
 
-                if snippet_collection.thumbnail_timeout == 0 and not curr_ad:
+                if snippet_collection.thumbnail_timeout == 0 and not curr_ad and curr_motion:
                     snippet_collection.thumbnail_frame = curr_image.copy()
                     snippet_collection.thumbnail_timeout = -1
 
@@ -559,7 +672,7 @@ def run_capture(capture: Process):
 
     global database
     global database_cursor
-    database = sqlite3.connect(os.getenv("DATABASE_PROD_PATH"))
+    database = sqlite3.connect(os.getenv("DATABASE_PROD_PATH"), check_same_thread=False)
     database_cursor = database.cursor()
 
     target_dir = os.getenv("LIVESTREAM_SNIPPET")
@@ -600,7 +713,7 @@ def run_capture(capture: Process):
                             stat = os.stat(f"{target_dir}/{file}")
                             if time.time() - stat.st_mtime > maximum_snippet_retention:
                                 print(f"Removing old snippet {file} ({time.time() - stat.st_mtime}s old)")
-                                #os.remove(f"{target_dir}/{file}")
+                                os.remove(f"{target_dir}/{file}")
                         snippet_until_clear = snippet_clear_interval
 
                 downloaded_urls.append(ts_url)
