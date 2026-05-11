@@ -2,8 +2,21 @@ import sys
 import os
 import subprocess
 
-input_dir  = sys.argv[1]
-output_dir = sys.argv[2]
+from dotenv import load_dotenv
+load_dotenv()
+
+location = sys.argv[1]
+print(f"Using location '{location}'...")
+
+input_dir = None
+output_dir = None
+
+if location == "filisur":
+    input_dir = os.getenv("WEBCAM_FILISUR_IMAGE")
+    output_dir = os.getenv("WEBCAM_FILISUR_THUMBNAIL")
+else:
+    print("Invalid location!")
+    exit(1)
 
 processes = []
 
