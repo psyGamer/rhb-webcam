@@ -298,7 +298,7 @@ pub fn main() !void {
 
     var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool) }, null);
     var server: tk.Server = try .init(allocator, server_routes, .{
-        .listen = .{ .hostname = "0.0.0.0", .port = 9000 },
+        .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
         .injector = &injector,
     });
     defer server.deinit();

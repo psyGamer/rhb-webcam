@@ -100,7 +100,7 @@ class SnippetCollection:
 
             self.file_name = now.strftime('%Y-%m-%d_%H-%M-%S')
             self.video_target_file = f"{video_target_dir}/{self.file_name}.mp4"
-            self.image_target_file = f"{image_target_dir}/{self.file_name}.png"
+            self.image_target_file = f"{image_target_dir}/{self.file_name}.jpg"
             self.thumbnail_target_file = f"{thumbnail_target_dir}/{self.file_name}.jpg"
             self.start_time = time
             self.thumbnail_frame = frame.copy()
@@ -202,7 +202,12 @@ class SnippetCollection:
                 self.video_target_file
             ])
 
-        cv2.imwrite(self.image_target_file, self.thumbnail_frame, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        # cv2.imwrite(self.image_target_file, self.thumbnail_frame, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        cv2.imwrite(self.image_target_file, self.thumbnail_frame, [
+            cv2.IMWRITE_JPEG_QUALITY, 50,
+            cv2.IMWRITE_JPEG_PROGRESSIVE, 1,
+            cv2.IMWRITE_JPEG_OPTIMIZE, 1
+        ])
 
         subprocess.Popen([
             "ffmpeg", "-hide_banner", "-loglevel", "error",
@@ -626,7 +631,7 @@ def run_analysis(capture: Process):
 
                     snippet_collection.file_name = now.strftime('%Y-%m-%d_%H-%M-%S')
                     snippet_collection.video_target_file = f"{video_target_dir}/{snippet_collection.file_name}.mp4"
-                    snippet_collection.image_target_file = f"{image_target_dir}/{snippet_collection.file_name}.png"
+                    snippet_collection.image_target_file = f"{image_target_dir}/{snippet_collection.file_name}.jpg"
                     snippet_collection.thumbnail_target_file = f"{thumbnail_target_dir}/{snippet_collection.file_name}.jpg"
                 elif snippet_collection.thumbnail_timeout > 0:
                     snippet_collection.thumbnail_timeout -= 1

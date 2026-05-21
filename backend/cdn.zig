@@ -22,8 +22,8 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
 
             content_name[(content_name.len - extension_len)..][0..extension_len].* = switch (content_type) {
                 .image => switch (location) {
-                    .filisur, .livestream => ".png".*,
-                    .landwasser, .landquart, .brusio => ".jpg".*,
+                    .filisur => ".png".*,
+                    .livestream, .landwasser, .landquart, .brusio => ".jpg".*,
                 },
                 .video => ".mp4".*,
                 .thumnail => ".jpg".*,
@@ -70,8 +70,8 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
 
             switch (content_type) {
                 .image => try sendFile(ctx, file, switch (location) {
-                    .filisur, .livestream => "image/png",
-                    .landwasser, .landquart, .brusio => "image/jpeg",
+                    .filisur => "image/png",
+                    .livestream, .landwasser, .landquart, .brusio => "image/jpeg",
                 }),
                 .video => try sendFile(ctx, file, "video/mp4"),
                 .thumnail => try sendFile(ctx, file, "image/jpeg"),

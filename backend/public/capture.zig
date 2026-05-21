@@ -272,8 +272,8 @@ pub fn capture(comptime location: Location) tk.Route {
             var image_name: [Timestamp.time_fmt.len + extension_len]u8 = undefined;
             image_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
             image_name[(image_name.len - extension_len)..][0..extension_len].* = switch (location) {
-                .filisur, .livestream => ".png".*,
-                .landwasser, .landquart, .brusio => ".jpg".*,
+                .filisur => ".png".*,
+                .livestream, .landwasser, .landquart, .brusio => ".jpg".*,
             };
 
             const image_path = try std.fs.path.join(ctx.allocator, &.{ env.key(switch (location) {
