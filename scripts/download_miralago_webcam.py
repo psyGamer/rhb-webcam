@@ -23,7 +23,7 @@ tz_local = ZoneInfo("Europe/Zurich")
 
 while True:
     try:
-        res = requests.get(url, stream=True)
+        res = requests.get(url, stream=True, timeout=10)
         if res.status_code != 200:
             print(f"Failed to fetch image '{url}':")
             print(res.content)
