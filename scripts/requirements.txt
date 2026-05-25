@@ -15,3 +15,6 @@ imagehash
 
 # parse_locomotive_allocations.py
 pdfplumber
+
+# create_vapid_keys.py
+ecdsa
