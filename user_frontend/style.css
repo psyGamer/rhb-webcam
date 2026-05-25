@@ -130,12 +130,44 @@ header {
         }
     }
 
+    button {
+        cursor: pointer;
+    }
+
     /* Navigation */
     nav {
         display: flex;
         align-items: center;
 
         gap: 0.6rem;
+    }
+
+    .notifications {
+        color: var(--accent-2);
+        background: #ffffff;
+        
+        text-decoration: none;
+        font-weight: 600;
+        
+        padding: 0 0.5em;
+        border: 1px solid #ddd;
+        border-radius: var(--border-radius-small);
+
+        transition: all 150ms ease;
+
+        height: 2em;
+
+        cursor: pointer;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5em;
+
+        &:hover {
+            background: #f0f4ff;
+            border-color: var(--accent-2);
+        }
     }
 
     .hamburger {

@@ -92,11 +92,13 @@ const routes: []const tk.Route = &.{
         .get("/:path", capture_view.capture(.livestream)),
     }),
 
+    // Notification service
+    .group("/notifications", @import("notification.zig").routes),
+
     // Static
-    .get("/style.css", if (builtin.mode == .Debug)
-        staticFile("../user_frontend/style.css", .never)
-    else
-        staticFile(user_dist_dir ++ "style.css", .{ .timeout = 3600 })),
+    .get("/style.css", asset("style.css")),
+    .get("/notify-subscribe.js", asset("notify-subscribe.js")),
+    .get("/notify-service-worker.js", asset("notify-service-worker.js")),
 
     // Admin
     requireAuth(.{ .realm = "Admin", .validate = validateAdminLogin }, &.{.group("/admin", &.{
@@ -111,6 +113,15 @@ const routes: []const tk.Route = &.{
         .group("/api", @import("categorize.zig").routes),
     })}),
 };
+
+fn asset(comptime path: []const u8) tk.Route {
+    // Use live version in debug builds
+    if (builtin.mode == .Debug) {
+        return staticFile("../user_frontend/" ++ path, .never);
+    } else {
+        return staticFile(user_dist_dir ++ path, .{ .timeout = 3600 });
+    }
+}
 
 pub const Env = dotenv.Env(enum {
     /// Preview images for videos from the Filisur webcam
@@ -156,6 +167,11 @@ pub const Env = dotenv.Env(enum {
     /// File storing the website database
     DATABASE_DEV_PATH,
     DATABASE_PROD_PATH,
+
+    // VAPID keypair for signing notifications
+    VAPID_SUBJECT,
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY,
 });
 
 /// Collection of parsed train schedules

@@ -71,6 +71,8 @@ fn compileUserFrontend(b: *std.Build, target: std.Build.ResolvedTarget, optimize
     const install_dir: std.Build.InstallDir = .{ .custom = "user-dist" };
 
     install_step.dependOn(&b.addInstallFileWithDir(b.path("user_frontend/style.css"), install_dir, "style.css").step);
+    install_step.dependOn(&b.addInstallFileWithDir(b.path("user_frontend/notify-subscribe.js"), install_dir, "notify-subscribe.js").step);
+    install_step.dependOn(&b.addInstallFileWithDir(b.path("user_frontend/notify-service-worker.js"), install_dir, "notify-service-worker.js").step);
 
     return .{ install_step, frontend_module };
 }

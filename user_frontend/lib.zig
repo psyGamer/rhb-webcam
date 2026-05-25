@@ -37,10 +37,13 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\            </h1>
         \\        </a>
         \\        <nav>
+        \\            <span class="notifications">
+        \\                <input type="checkbox" id="notifications"/>
+        \\                <label for="notifications">Benachrichtigungen</label>
+        \\            </span>  
         \\            <details class="location-select">
         \\                <summary>{s}</summary>
         \\                <div>
-        \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
@@ -70,10 +73,10 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\                </svg>
         \\            </a>
         \\
+        \\            <a class="boxed-button" id="subscribe-notification">Benachrichtigungen erhalten</a>
         \\            <details class="location-select">
         \\                <summary>{s}</summary>
         \\                <div>
-        \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
@@ -93,8 +96,6 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         Location.names.get(location),
         @tagName(Location.filisur),
         Location.names.get(.filisur),
-        @tagName(Location.landwasser),
-        Location.names.get(.landwasser),
         @tagName(Location.landquart),
         Location.names.get(.landquart),
         @tagName(Location.brusio),
@@ -107,8 +108,6 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         Location.names.get(location),
         @tagName(Location.filisur),
         Location.names.get(.filisur),
-        @tagName(Location.landwasser),
-        Location.names.get(.landwasser),
         @tagName(Location.landquart),
         Location.names.get(.landquart),
         @tagName(Location.brusio),
@@ -121,15 +120,20 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
 
     try @call(.always_inline, page_render, page_args);
 
-    try writer.writeAll(
+    try writer.print(
         \\    <script>
-        \\        const sideMenu = document.querySelector('.side-menu');
+        \\        const sideMenu = document.querySelector(".side-menu");
         \\
-        \\        function showSideMenu(state) {
-        \\            sideMenu.setAttribute('aria-pressed', state);
-        \\        }
+        \\        function showSideMenu(state) {{
+        \\            sideMenu.setAttribute("aria-pressed", state);
+        \\        }}
+        \\
+        \\        // For reference in the notification service
+        \\        const webcam_location = "{s}"
         \\    </script>
+        \\
+        \\    <script src="/notify-subscribe.js"></script>
         \\</body>
         \\</html>
-    );
+    , .{@tagName(location)});
 }
