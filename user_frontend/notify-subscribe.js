@@ -49,6 +49,8 @@ subscribeBox.addEventListener("change", async () => {
                 location: webcam_location,
             }),
         });
+
+        registration.unregister();
     }
 });
 
