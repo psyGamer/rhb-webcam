@@ -1,23 +1,31 @@
 console.log(webcam_location)
 
-const subscribeBox = document.getElementById("notifications");
+const notificationsCheckbox = document.getElementById("notifications");
+const notificationsSideCheckbox = document.getElementById("notifications-side");
 
 // Apply current state
-subscribeBox.checked = localStorage.getItem(`notify-${webcam_location}`) == "true";
+notificationsCheckbox.checked = notificationsSideCheckbox.checked = localStorage.getItem(`notify-${webcam_location}`) == "true";
 
-subscribeBox.addEventListener("change", async () => {
-    localStorage.setItem(`notify-${webcam_location}`, subscribeBox.checked);
+notificationsCheckbox.addEventListener("change", async () => {
+    localStorage.setItem(`notify-${webcam_location}`, notificationsCheckbox.checked);
+    notificationsSideCheckbox.checked = notificationsCheckbox.checked;
 
-    // for (let reg of await navigator.serviceWorker.getRegistrations()) {
-    //     reg.unregister();
-    // }
+    await handleChanged(notificationsCheckbox.checked);
+});
+notificationsSideCheckbox.addEventListener("change", async () => {
+    localStorage.setItem(`notify-${webcam_location}`, notificationsSideCheckbox.checked);
+    notificationsCheckbox.checked = notificationsSideCheckbox.checked;
 
+    await handleChanged(notificationsSideCheckbox.checked);
+});
+
+async function handleChanged(state) {
     navigator.serviceWorker.register("/notify-service-worker.js");
 
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
 
-    if (subscribeBox.checked) {
+    if (state) {
         // Subscribe to webcam
         if (!subscription) {
             // Create subscription
@@ -54,18 +62,4 @@ subscribeBox.addEventListener("change", async () => {
             }),
         });
     }
-});
-
-document.getElementById("notify-test").addEventListener("click", async () => {
-    fetch("/notifications/send", {
-        method: "post",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            password: "abc",
-            location: webcam_location,
-            file: "2026-05-26_13-27-20",
-        }),
-    });
-})
+}

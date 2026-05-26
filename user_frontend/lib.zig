@@ -40,7 +40,7 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\            <span class="notifications">
         \\                <input type="checkbox" id="notifications"/>
         \\                <label for="notifications">Benachrichtigungen</label>
-        \\            </span>  
+        \\            </span>
         \\            <details class="location-select">
         \\                <summary>{s}</summary>
         \\                <div>
@@ -73,7 +73,7 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\                </svg>
         \\            </a>
         \\
-        \\            <a class="boxed-button" id="subscribe-notification">Benachrichtigungen erhalten</a>
+        \\            <a class="boxed-button" href="/{s}/archive">Archiv</a>
         \\            <details class="location-select">
         \\                <summary>{s}</summary>
         \\                <div>
@@ -83,7 +83,10 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\                    <a href="/{s}">{s}</a>
         \\                </div>
         \\            </details>
-        \\            <a class="boxed-button" href="/{s}/archive">Archiv</a>
+        \\            <span class="notifications">
+        \\                <input type="checkbox" id="notifications-side"/>
+        \\                <label for="notifications-side">Benachrichtigungen</label>
+        \\            </span>
         \\            <!-- <a class="boxed-button" href="/search">Suche</a> -->
         \\        </div>
         \\    </header>
@@ -105,6 +108,8 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
 
         @tagName(location),
 
+        @tagName(location),
+
         Location.names.get(location),
         @tagName(Location.filisur),
         Location.names.get(.filisur),
@@ -114,8 +119,6 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         Location.names.get(.brusio),
         @tagName(Location.livestream),
         Location.names.get(.livestream),
-
-        @tagName(location),
     });
 
     try @call(.always_inline, page_render, page_args);

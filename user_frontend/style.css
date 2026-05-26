@@ -232,7 +232,7 @@ header {
                 border-color: var(--accent-2);
             }
         }
-        .location-select, .boxed-button {
+        .location-select, .boxed-button, .notifications {
             margin: 1em 3em 0em 1em;
         }
 
@@ -736,6 +736,9 @@ header {
 }
 @media (max-width: 500px) {
     header nav {
+        .notifications {
+            display: none;
+        }
         .location-select {
             display: none;
         }

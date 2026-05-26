@@ -62,7 +62,7 @@ fn unregister(db: *fr.Session, body: struct { subscription: PushSubscription, lo
 
 fn sendWebcamNotifications(arena: std.mem.Allocator, env: *Env, db: *fr.Session, body: struct { password: []const u8, location: Location, file: [Timestamp.time_fmt.len]u8 }) !void {
     // Validate password in constant time
-    const password = env.key(.NOTIFICATION_PASSWORED);
+    const password = env.key(.NOTIFICATION_PASSWORD);
     var invalid = false;
     for (body.password, 0..) |body_c, i| {
         const check_c = if (i < password.len) password[i] else 0;

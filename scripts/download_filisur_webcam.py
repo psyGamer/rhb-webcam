@@ -1,6 +1,7 @@
 import os
 import math
 import subprocess
+import requests
 
 from datetime import datetime
 from dataclasses import dataclass
@@ -454,6 +455,16 @@ class SnippetCollection:
         global database_cursor
         database_cursor.execute(f"INSERT INTO filisur_capture (file) VALUES (\"{self.file_name}\")")
         database.commit()
+
+        # Send notification
+        try:
+            requests.post(f"http://localhost:{os.getenv("PORT")}/notifications/send", timeout=5, json={
+                "password": os.getenv("NOTIFICATION_PASSWORD"),
+                "location": "filisur",
+                "file": self.file_name,
+            })
+        except Exception as e:
+            print(f"Failed to send notification: {e}")
 
         print(f" => {self.video_target_file}  ({len(self.pending_flush)} segments)")
         self.pending_flush =  []

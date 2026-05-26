@@ -224,6 +224,16 @@ class SnippetCollection:
         database_cursor.execute(f"INSERT INTO livestream_capture (file, location) VALUES (\"{self.file_name}\", {(f'\"{self.location.names[0]}\"' if self.location else 'NULL')})")
         database.commit()
 
+        # Send notification
+        try:
+            requests.post(f"http://localhost:{os.getenv("PORT")}/notifications/send", timeout=5, json={
+                "password": os.getenv("NOTIFICATION_PASSWORD"),
+                "location": "livestream",
+                "file": self.file_name,
+            })
+        except Exception as e:
+                print(f"Failed to send notification: {e}")
+
         print(f" => {self.video_target_file}  ({len(self.pending_flush)} segments)")
         self.pending_flush =  []
 

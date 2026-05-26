@@ -91,7 +91,7 @@ pub extern fn sqlite3_open_v2(filename: [*c]const u8, ppDb: [*c]?*sqlite3, flags
 
 /// Load the appropriate database from disk
 pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
-    const filepath = try allocator.dupeZ(u8, env.key(if (builtin.mode == .Debug) .DATABASE_PROD_PATH else .DATABASE_PROD_PATH));
+    const filepath = try allocator.dupeZ(u8, env.key(if (builtin.mode == .Debug) .DATABASE_DEV_PATH else .DATABASE_PROD_PATH));
     defer allocator.free(filepath);
 
     const SQLITE_OPEN_READWRITE: c_int = 0x00000002;

@@ -75,6 +75,16 @@ while True:
             database_cursor.execute(f"INSERT INTO landquart_capture (file) VALUES (\"{capture_name[:-4]}\")")
             database.commit()
 
+            # Send notification
+            try:
+                requests.post(f"http://localhost:{os.getenv("PORT")}/notifications/send", timeout=5, json={
+                    "password": os.getenv("NOTIFICATION_PASSWORD"),
+                    "location": "brusio",
+                    "file": capture_name[:-4],
+                })
+            except Exception as e:
+                print(f"Failed to send notification: {e}")
+
         prev_image = image_url
         time.sleep(update_interval)
     except Exception as e:

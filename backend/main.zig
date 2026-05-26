@@ -128,6 +128,9 @@ fn asset(comptime path: []const u8) tk.Route {
 }
 
 pub const Env = dotenv.Env(enum {
+    /// Port for the server to use
+    PORT,
+
     /// Preview images for videos from the Filisur webcam
     WEBCAM_FILISUR_IMAGE,
     /// Images from the Landwasser webcam
@@ -177,7 +180,7 @@ pub const Env = dotenv.Env(enum {
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY,
 
-    NOTIFICATION_PASSWORED,
+    NOTIFICATION_PASSWORD,
 });
 
 /// Collection of parsed train schedules
@@ -318,14 +321,16 @@ pub fn main() !void {
 
     const server_routes = &.{withAnalytics(routes)};
 
+    const port = std.fmt.parseInt(u16, env.key(.PORT), 10) catch 8000;
+
     var injector: tk.Injector = .init(&.{ .ref(&env), .ref(&schedules), .ref(&pool), .ref(&cred_storage), .ref(&db_pool) }, null);
     var server: tk.Server = try .init(allocator, server_routes, .{
-        .listen = .{ .hostname = "0.0.0.0", .port = 8000 },
+        .listen = .{ .hostname = "0.0.0.0", .port = port },
         .injector = &injector,
     });
     defer server.deinit();
 
-    std.log.info("Server running on http://localhost:8000", .{});
+    std.log.info("Server running on http://localhost:{d}", .{port});
     try server.start();
 }
 
