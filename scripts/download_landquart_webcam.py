@@ -79,7 +79,7 @@ while True:
             try:
                 requests.post(f"http://localhost:{os.getenv("PORT")}/notifications/send", timeout=5, json={
                     "password": os.getenv("NOTIFICATION_PASSWORD"),
-                    "location": "brusio",
+                    "location": "landquart",
                     "file": capture_name[:-4],
                 })
             except Exception as e:

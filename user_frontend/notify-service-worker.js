@@ -8,6 +8,14 @@ self.addEventListener('push', event => {
     const [year, month, day] = date.split('-');
     const [hours, minutes, seconds] = time.split('-');
     const fileDate = new Date(year, month - 1, day, hours, minutes, seconds);
+    const dateStr = fileDate.toLocaleString('de-DE', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
 
     const locationMames = {
         "filisur": "Filisur Webcam",
@@ -31,7 +39,7 @@ self.addEventListener('push', event => {
             renotify: true,
             timestamp: fileDate.getTime(),
             data: { location, file, count, dateStr }
-        })
+        });
     })())
 });
 

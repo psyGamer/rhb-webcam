@@ -310,5 +310,7 @@ fn sendNotification(allocator: std.mem.Allocator, env: *Env, subscription: PushS
     if (response.status.class() != .success) {
         std.log.err("Notification server '{s}' returned {d} {s}", .{ subscription.endpoint, @intFromEnum(response.status), @tagName(response.status) });
         return error.BadRequest;
+    } else {
+        std.log.info("Successfully sent notification to '{s}'", .{subscription.endpoint});
     }
 }
