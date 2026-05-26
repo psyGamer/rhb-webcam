@@ -5,6 +5,7 @@ const fr = @import("fridge");
 const database = @import("database.zig");
 
 const Env = @import("main.zig").Env;
+const Timestamp = @import("common").Timestamp;
 const Location = @import("common").Location;
 
 /// Web notification subscription
@@ -22,7 +23,7 @@ pub const routes: []const tk.Route = &.{
     .post("/register", register),
     .post("/unregister", unregister),
 
-    .post("/notify-webcam", notifyWebcam),
+    .post("/send", sendWebcamNotifications),
 };
 
 fn getPublicKey(env: *Env) []const u8 {
@@ -59,35 +60,64 @@ fn unregister(db: *fr.Session, body: struct { subscription: PushSubscription, lo
     std.log.info("Unregistered subscription from webcam '{s}' by '{s}'", .{ @tagName(body.location), body.subscription.endpoint });
 }
 
-fn notifyWebcam(arena: std.mem.Allocator, env: *Env, db: *fr.Session, body: struct { password: []const u8, location: Location }) !void {
-    const raw = db.raw(std.fmt.comptimePrint(
-        \\SELECT ns.endpoint, ns.p256dh, ns.auth
-        \\FROM {s} ns
-        \\JOIN {s} nw ON nw.endpoint = ns.endpoint
-        \\WHERE nw.webcam = ?
-    , .{ database.NotificationSubscription.sql_table_name, database.NotificationWebcam.sql_table_name }), .{@tagName(body.location)});
+fn sendWebcamNotifications(arena: std.mem.Allocator, env: *Env, db: *fr.Session, body: struct { password: []const u8, location: Location, file: [Timestamp.time_fmt.len]u8 }) !void {
+    // Validate password in constant time
+    const password = env.key(.NOTIFICATION_PASSWORED);
+    var invalid = false;
+    for (body.password, 0..) |body_c, i| {
+        const check_c = if (i < password.len) password[i] else 0;
+        if (body_c != check_c) {
+            invalid = true;
+        }
+    }
 
-    var stmt = try raw.prepare();
-    defer stmt.deinit();
+    if (invalid) {
+        return error.Unauthorized;
+    }
 
-    while (try stmt.next(database.NotificationSubscription, db.arena)) |db_sub| {
-        const sub: PushSubscription = .{
-            .endpoint = db_sub.endpoint,
-            .keys = .{
-                .p256dh = db_sub.p256dh,
-                .auth = db_sub.auth,
-            },
-        };
-        sendNotification(arena, env, sub, "{\"title\":\"FloridaJS Notifications are amazing\",\"body\":\"And this event was well worth the money I spent on donations!\"}", .{}) catch {
-            // Clear erroring endpoints
-            try db.raw(
-                std.fmt.comptimePrint(
-                    \\DELETE FROM {s} WHERE endpoint = ?
-                , .{database.NotificationSubscription.sql_table_name}),
-                .{sub.endpoint},
-            ).exec();
-            std.log.info("Removed invalid endpoint '{s}'", .{sub.endpoint});
-        };
+    var require_delete: std.ArrayList([]const u8) = .empty;
+
+    {
+        const raw = db.raw(std.fmt.comptimePrint(
+            \\SELECT ns.endpoint, ns.p256dh, ns.auth
+            \\FROM {s} ns
+            \\JOIN {s} nw ON nw.endpoint = ns.endpoint
+            \\WHERE nw.webcam = ?
+        , .{ database.NotificationSubscription.sql_table_name, database.NotificationWebcam.sql_table_name }), .{@tagName(body.location)});
+
+        var stmt = try raw.prepare();
+        defer stmt.deinit();
+
+        const payload = try std.fmt.allocPrint(arena,
+            \\{{
+            \\  "location": "{s}",
+            \\  "file": "{s}"
+            \\}}
+        , .{ @tagName(body.location), body.file });
+
+        while (try stmt.next(database.NotificationSubscription, db.arena)) |db_sub| {
+            const sub: PushSubscription = .{
+                .endpoint = db_sub.endpoint,
+                .keys = .{
+                    .p256dh = db_sub.p256dh,
+                    .auth = db_sub.auth,
+                },
+            };
+            sendNotification(arena, env, sub, payload, .{}) catch {
+                // Clear erroring endpoints
+                try require_delete.append(arena, try arena.dupe(u8, sub.endpoint));
+            };
+        }
+    }
+
+    for (require_delete.items) |item| {
+        try db.raw(
+            std.fmt.comptimePrint(
+                \\DELETE FROM {s} WHERE endpoint = ?
+            , .{database.NotificationSubscription.sql_table_name}),
+            .{item},
+        ).exec();
+        std.log.info("Removed invalid endpoint '{s}'", .{item});
     }
 }
 

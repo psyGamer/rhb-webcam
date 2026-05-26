@@ -8,6 +8,10 @@ subscribeBox.checked = localStorage.getItem(`notify-${webcam_location}`) == "tru
 subscribeBox.addEventListener("change", async () => {
     localStorage.setItem(`notify-${webcam_location}`, subscribeBox.checked);
 
+    // for (let reg of await navigator.serviceWorker.getRegistrations()) {
+    //     reg.unregister();
+    // }
+
     navigator.serviceWorker.register("/notify-service-worker.js");
 
     const registration = await navigator.serviceWorker.ready;
@@ -53,7 +57,7 @@ subscribeBox.addEventListener("change", async () => {
 });
 
 document.getElementById("notify-test").addEventListener("click", async () => {
-    fetch("/notifications/notify-webcam", {
+    fetch("/notifications/send", {
         method: "post",
         headers: {
             "Content-Type": "application/json"
@@ -61,6 +65,7 @@ document.getElementById("notify-test").addEventListener("click", async () => {
         body: JSON.stringify({
             password: "abc",
             location: webcam_location,
+            file: "2026-05-26_13-27-20",
         }),
     });
 })
