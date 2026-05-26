@@ -49,22 +49,17 @@ subscribeBox.addEventListener("change", async () => {
                 location: webcam_location,
             }),
         });
-
-        registration.unregister();
     }
 });
 
 document.getElementById("notify-test").addEventListener("click", async () => {
-    const registration = await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
-
-    fetch("/notifications/notify-test", {
+    fetch("/notifications/notify-webcam", {
         method: "post",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            subscription: subscription,
+            password: "abc",
             location: webcam_location,
         }),
     });

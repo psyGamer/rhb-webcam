@@ -32,6 +32,7 @@ pub const Locomotive = struct {
     position: u32,
     towed: bool,
 };
+
 pub const FilisurCapture = struct {
     pub const sql_table_name = "filisur_capture";
 
@@ -58,6 +59,7 @@ pub const BrusioCapture = struct {
 
     file: []const u8,
 };
+
 pub const Analytics = struct {
     pub const sql_table_name = "analytics";
 
@@ -67,6 +69,20 @@ pub const Analytics = struct {
     method: []const u8,
     status: u16,
     date: []const u8,
+};
+
+pub const NotificationSubscription = struct {
+    pub const sql_table_name = "notification_subscriptions";
+
+    endpoint: []const u8,
+    p256dh: []const u8,
+    auth: []const u8,
+};
+pub const NotificationWebcam = struct {
+    pub const sql_table_name = "notification_webcams";
+
+    endpoint: []const u8,
+    webcam: []const u8,
 };
 
 pub const struct_sqlite3 = opaque {};
@@ -102,6 +118,7 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
         try conn.execAll(
             \\PRAGMA journal_mode = WAL;
             \\PRAGMA synchronous = NORMAL;
+            \\PRAGMA foreign_keys = ON;
         );
     }
     // Release back into pool for later usage
@@ -186,4 +203,20 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
         \\    time DATETIME DEFAULT CURRENT_TIMESTAMP
         \\);
     , .{ Analytics.sql_table_name, max_method_name }), .{});
+
+    try db.exec(std.fmt.comptimePrint(
+        \\CREATE TABLE IF NOT EXISTS {s}(
+        \\    endpoint TEXT PRIMARY KEY,
+        \\    p256dh   TEXT NOT NULL,
+        \\    auth     TEXT NOT NULL
+        \\);
+    , .{NotificationSubscription.sql_table_name}), .{});
+    try db.exec(std.fmt.comptimePrint(
+        \\CREATE TABLE IF NOT EXISTS {s}(
+        \\    endpoint TEXT REFERENCES {s}(endpoint) ON DELETE CASCADE,
+        \\    webcam   TEXT NOT NULL,
+        \\
+        \\    PRIMARY KEY (endpoint, webcam)
+        \\);
+    , .{ NotificationWebcam.sql_table_name, NotificationSubscription.sql_table_name }), .{});
 }
