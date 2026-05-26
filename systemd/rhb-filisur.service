@@ -1,0 +1,15 @@
+[Unit]
+Description=RhB Archive - Filisur Webcam Capture
+After=network.target
+
+[Service]
+Type=simple
+User=##USER##
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=##REPO_DIR##/scripts
+ExecStart=##REPO_DIR##/scripts/.venv/bin/python ##REPO_DIR##/scripts/download_filisur_webcam.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+

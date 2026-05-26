@@ -1,0 +1,9 @@
+[Unit]
+Description=RhB Archive - Fetch Daily Locomotive Allocations
+
+[Service]
+Type=oneshot
+User=##USER##
+WorkingDirectory=##REPO_DIR##/scripts
+ExecStart=/bin/bash -c './fetch_locomotive_allocations.sh'
+

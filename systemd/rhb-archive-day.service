@@ -1,0 +1,9 @@
+[Unit]
+Description=RhB Archive - Create Daily Archive
+
+[Service]
+Type=oneshot
+User=##USER##
+WorkingDirectory=##REPO_DIR##/scripts
+ExecStart=/bin/bash -c './create_day_video.sh $(date -d "yesterday 13:00" '+%%Y-%%m-%%d')'
+
