@@ -22,8 +22,12 @@ tz_gmt = ZoneInfo("GMT")
 tz_local = ZoneInfo("Europe/Zurich")
 
 while True:
+    headers = {
+        "User-Agent": "RhB Archive (rhb.webcam@gmail.com) If this automated capture is causing issues, please contact me!"
+    }
+
     try:
-        res = requests.get(url, stream=True, timeout=10)
+        res = requests.get(url, stream=True, timeout=10, headers=headers)
         if res.status_code != 200:
             print(f"Failed to fetch image '{url}':")
             print(res.content)

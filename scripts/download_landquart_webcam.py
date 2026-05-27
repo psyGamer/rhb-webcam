@@ -22,9 +22,13 @@ prev_image = None
 while True:
     database = sqlite3.connect(os.getenv("DATABASE_PROD_PATH"))
     database_cursor = database.cursor()
+
+    headers = {
+        "User-Agent": "RhB Archive (rhb.webcam@gmail.com) If this automated capture is causing issues, please contact me!"
+    }
     
     try:
-        res = requests.get(feed_api, timeout=10)
+        res = requests.get(feed_api, timeout=10, headers=headers)
         if res.status_code != 200:
             print("Failed to fetch feed:")
             print(res.content)
@@ -49,7 +53,7 @@ while True:
         thumb_dir = os.path.join(thumb_save_dir, capture_dir)
         thumb_path = os.path.join(thumb_dir, capture_name)
 
-        res = requests.get(image_url, timeout=10)
+        res = requests.get(image_url, timeout=10, headers=headers)
         if res.status_code != 200:
             print(f"Failed to fetch image '{image_url}':")
             print(res.content)

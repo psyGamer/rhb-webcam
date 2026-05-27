@@ -662,6 +662,7 @@ def run_capture(queue: DataQueue):
 
     header_background: Image = None
     
+    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "user_agent;RhB Archive (rhb.webcam@gmail.com) If this automated capture is causing issues, please contact me!"
     capture = cv2.VideoCapture(video_source)
     writer = None
 
@@ -732,7 +733,7 @@ def run_capture(queue: DataQueue):
 
                 target_dir = f"{os.getenv("WEBCAM_FILISUR_SNIPPET")}/{now.strftime('%Y-%m-%d')}"
                 if (not os.path.exists(target_dir)):
-                    os.mkdir(target_dir)
+                    os.makedirs(target_dir, exist_ok=True)
 
                 filepath = f"{target_dir}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.mts"
                 writer = FFmpegVideoWriter(filepath, meta.width, meta.height, meta.fps)

@@ -690,10 +690,14 @@ def run_capture(capture: Process):
 
     snippet_until_clear = snippet_clear_interval
 
+    headers = {
+        "User-Agent": "RhB Archive (rhb.webcam@gmail.com) If this automated capture is causing issues, please contact me!"
+    }
+
     downloaded_urls = deque(maxlen=100)
     while True:
         try:
-            res = requests.get(livestream_url, timeout=5)
+            res = requests.get(livestream_url, timeout=5, headers=headers)
             res.raise_for_status()
 
             for line in res.text.splitlines():
@@ -705,7 +709,7 @@ def run_capture(capture: Process):
                     continue
 
                 filepath = f"{target_dir}/{line.strip()}"
-                file_res = requests.get(ts_url, timeout=5)
+                file_res = requests.get(ts_url, timeout=5, headers=headers)
 
                 with open(filepath, "wb") as f:
                     f.write(file_res.content)
