@@ -101,7 +101,6 @@ const routes: []const tk.Route = &.{
     .get("/notify-subscribe.js", asset("notify-subscribe.js")),
     .get("/notify-service-worker.js", asset("notify-service-worker.js")),
 
-    .get("/rhb.svg", asset("rhb.svg")),
     .get("/rhb-72.png", asset("rhb-72.png")),
     .get("/rhb-192.png", asset("rhb-192.png")),
 
@@ -111,6 +110,9 @@ const routes: []const tk.Route = &.{
         \\Disallow: /
         \\
         \\User-agent: Scrapy
+        \\Disallow: /
+        \\
+        \\User-agent: ClaudeBot
         \\Disallow: /
     )),
 

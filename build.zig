@@ -74,6 +74,9 @@ fn compileUserFrontend(b: *std.Build, target: std.Build.ResolvedTarget, optimize
     install_step.dependOn(&b.addInstallFileWithDir(b.path("user_frontend/notify-subscribe.js"), install_dir, "notify-subscribe.js").step);
     install_step.dependOn(&b.addInstallFileWithDir(b.path("user_frontend/notify-service-worker.js"), install_dir, "notify-service-worker.js").step);
 
+    install_step.dependOn(&b.addInstallFileWithDir(b.path("user_frontend/rhb-72.png"), install_dir, "notify-service-worker.js").step);
+    install_step.dependOn(&b.addInstallFileWithDir(b.path("user_frontend/rhb-192.png"), install_dir, "notify-service-worker.js").step);
+
     return .{ install_step, frontend_module };
 }
 fn compileAdminFrontend(b: *std.Build, optimize: std.builtin.OptimizeMode, use_llvm: bool) *std.Build.Step {

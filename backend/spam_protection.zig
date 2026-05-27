@@ -17,6 +17,10 @@ pub fn withProtection(children: []const tk.Route) tk.Route {
                     log.info("Blocked Scrapy bot", .{});
                     block = true;
                 }
+                if (std.mem.containsAtLeast(u8, ua, 1, "anthropic")) {
+                    log.info("Blocked Claude bot", .{});
+                    block = true;
+                }
 
                 if (block) {
                     ctx.res.body =
