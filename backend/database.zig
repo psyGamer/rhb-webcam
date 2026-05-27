@@ -69,6 +69,9 @@ pub const Analytics = struct {
     method: []const u8,
     status: u16,
     date: []const u8,
+
+    address: ?[]const u8,
+    user_agent: ?[]const u8,
 };
 
 pub const NotificationSubscription = struct {
@@ -200,7 +203,10 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
         \\    method VARCHAR({d}) NOT NULL,
         \\    status INTEGER NOT NULL,
         \\
-        \\    time DATETIME DEFAULT CURRENT_TIMESTAMP
+        \\    time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        \\
+        \\    address TEXT,
+        \\    user_agent TEXT
         \\);
     , .{ Analytics.sql_table_name, max_method_name }), .{});
 

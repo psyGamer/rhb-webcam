@@ -20,6 +20,7 @@ const cdnHandler = @import("cdn.zig").handler;
 
 const requireAuth = @import("auth.zig").requireAuth;
 const withAnalytics = @import("analytics.zig").withAnalytics;
+const withProtection = @import("spam_protection.zig").withProtection;
 
 const latestView = @import("public/latest.zig").latest;
 const capture_view = @import("public/capture.zig");
@@ -319,7 +320,7 @@ pub fn main() !void {
     try db.load(&db_pool, allocator, &env);
     defer db_pool.deinit();
 
-    const server_routes = &.{withAnalytics(routes)};
+    const server_routes = &.{withAnalytics(&.{withProtection(routes)})};
 
     const port = std.fmt.parseInt(u16, env.key(.PORT), 10) catch 8000;
 
