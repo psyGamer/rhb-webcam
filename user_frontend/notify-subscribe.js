@@ -1,5 +1,3 @@
-console.log(webcam_location)
-
 const notificationsCheckbox = document.getElementById("notifications");
 const notificationsSideCheckbox = document.getElementById("notifications-side");
 
