@@ -105,6 +105,15 @@ const routes: []const tk.Route = &.{
     .get("/rhb-72.png", asset("rhb-72.png")),
     .get("/rhb-192.png", asset("rhb-192.png")),
 
+    // Block AI crawlers
+    .get("/robots.txt", tk.send(
+        \\User-agent: GPTBot
+        \\Disallow: /
+        \\
+        \\User-agent: Scrapy
+        \\Disallow: /
+    )),
+
     // Admin
     requireAuth(.{ .realm = "Admin", .validate = validateAdminLogin }, &.{.group("/admin", &.{
         // DVUI views (all point to index.html, due to client-side routing)
