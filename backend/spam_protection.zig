@@ -6,6 +6,11 @@ pub fn withProtection(children: []const tk.Route) tk.Route {
 
     const H = struct {
         pub fn handle(ctx: *tk.Context) anyerror!void {
+            if (std.mem.eql(u8, ctx.req.url.path, "/robots.txt")) {
+                // Allow it to read that it is not allowed
+                return ctx.next();
+            }
+
             // Block AI bots
             if (ctx.req.header("user-agent")) |ua| {
                 var block = false;
@@ -33,7 +38,7 @@ pub fn withProtection(children: []const tk.Route) tk.Route {
                 }
             }
 
-            try ctx.next();
+            return ctx.next();
         }
     };
 

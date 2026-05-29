@@ -104,15 +104,10 @@ const routes: []const tk.Route = &.{
     .get("/rhb-72.png", asset("rhb-72.png")),
     .get("/rhb-192.png", asset("rhb-192.png")),
 
-    // Block AI crawlers
+    // Block crawlers
     .get("/robots.txt", tk.send(
-        \\User-agent: GPTBot
-        \\Disallow: /
-        \\
-        \\User-agent: Scrapy
-        \\Disallow: /
-        \\
-        \\User-agent: ClaudeBot
+        \\# If you would like to use the data available on this website, please concat rhb.webcam@gmail.com instead of scraping it!
+        \\User-agent: *
         \\Disallow: /
     )),
 
