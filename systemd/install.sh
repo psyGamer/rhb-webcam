@@ -3,6 +3,8 @@
 cd $(dirname $0)/..
 REPO_DIR=$(pwd)
 
+sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-server.service | sed -e "s\\##USER##\\$USER\\g" | sudo tee /etc/systemd/system/rhb-server.service
+
 sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-filisur.service    | sed -e "s\\##USER##\\$USER\\g" | sudo tee /etc/systemd/system/rhb-filisur.service
 sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-landquart.service  | sed -e "s\\##USER##\\$USER\\g" | sudo tee /etc/systemd/system/rhb-landquart.service
 sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-brusio.service     | sed -e "s\\##USER##\\$USER\\g" | sudo tee /etc/systemd/system/rhb-brusio.service
