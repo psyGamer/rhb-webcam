@@ -28,17 +28,18 @@ self.addEventListener('push', event => {
     event.waitUntil((async () => {
         const existing = await self.registration.getNotifications({ tag: location });
         const count = existing.length > 0 ? (existing[0].data.count ?? 1) + 1 : 1;
+        const firstDateStr = existing.length > 0 ? existing[0].data.dateStr : dateStr;
 
         await self.registration.showNotification(locationMames[location], {
             body: count == 1
                 ? `Neue Aufnahme am ${dateStr}`
-                : `${count} neue Aufnahmen seit dem ${count > 1 ? existing[0].data.dateStr : dateStr}`,
+                : `${count} neue Aufnahmen seit dem ${firstDateStr}`,
             tag: location,
             badge: "/rhb-72.png",
             icon: "/rhb-192.png",
             renotify: true,
             timestamp: fileDate.getTime(),
-            data: { location, file, count, dateStr }
+            data: { location, file, count, dateStr: firstDateStr }
         });
     })())
 });
