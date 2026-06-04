@@ -233,6 +233,8 @@ def run_analysis(queue: DataQueue):
 
     diff_accum = np.zeros(shape=(np.int32((crop_region["y2"] - crop_region["y1"]) * SCALE_FACTOR), np.int32((crop_region["x2"] - crop_region["x1"]) * SCALE_FACTOR)), dtype=np.uint8)
 
+    rect5x5_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+
     while True:
         obj = queue.get()
         if isinstance(obj, str):
@@ -263,22 +265,29 @@ def run_analysis(queue: DataQueue):
 
             diff_gray = cv2.absdiff(curr_gray, prev_gray)
             diff_gray = cv2.GaussianBlur(diff_gray, (5, 5), 0)
-            diff_gray[(diff_gray * mask) < 10] = 0
+            _, diff_thresh = cv2.threshold(diff_gray * mask, 10, 255, cv2.THRESH_BINARY)
+            diff_thresh = cv2.morphologyEx(diff_thresh, cv2.MORPH_DILATE, rect5x5_kernel)
+            diff_gray[(diff_gray * mask) < 15] = 0
 
             diff_accum = ((diff_accum * 0.75) + diff_gray)
+            _, accum_thresh = cv2.threshold(diff_accum, 20.0, 255, cv2.THRESH_BINARY)
+            accum_thresh = cv2.morphologyEx(accum_thresh, cv2.MORPH_ERODE, rect5x5_kernel)
 
-            _, diff_thresh = cv2.threshold(diff_accum, 20.0, 255, cv2.THRESH_BINARY)
-            open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            diff_thresh = cv2.morphologyEx(diff_thresh, cv2.MORPH_ERODE, open_kernel)
-            diff_sum = np.sum(diff_thresh) / 255
-            curr_motion = diff_sum >= 3000
+            motion_mask = cv2.bitwise_and(accum_thresh, accum_thresh, mask=diff_thresh)
+            motion_sum = np.sum(motion_mask) / 255
+
+            curr_motion = motion_sum >= 3000
 
             if debug_mode:
+                cv2.imshow("full", curr_frame)
                 cv2.imshow("img", curr_gray)
                 cv2.imshow("diff", diff_gray)
                 cv2.imshow("accum", diff_accum / 255)
-                cv2.imshow("motion", diff_thresh)
-                cv2.waitKey(1)
+                cv2.imshow("motion diff", diff_thresh)
+                cv2.imshow("motion accum", accum_thresh)
+                cv2.imshow("motion", motion_mask)
+                while cv2.waitKey(1) != ord('c'):
+                    pass
 
             if curr_motion:
                 curr_motion_level = min(curr_motion_level + 1, 5)
@@ -309,7 +318,7 @@ def run_analysis(queue: DataQueue):
             if collection.recording and curr_motion_level <= 1:
                 collection.stop_recording(curr_time)
             elif not collection.recording and curr_motion_level >= 3:
-                collection.start_recording(curr_frame, timeout_frames=3, curr_time=curr_time, should_buffer_start=True)
+                collection.start_recording(curr_frame, timeout_frames=3, curr_time=curr_time, should_buffer_start=False)
 
             prev_gray = curr_gray
 
@@ -322,7 +331,14 @@ def run_capture(queue: DataQueue):
         last_time = None
         writer = None
 
+        file_idx = 1
         for file in debug_files:
+            while queue.qsize() > 100:
+                pass
+
+            print(f"== DEBUG '{file}' [{file_idx}/{len(debug_files)}]")
+            file_idx += 1
+
             queue.put(file)
 
             container = av.open(file)
@@ -521,12 +537,6 @@ def capture_worker(queue: DataQueue):
 
 def main():
     load_dotenv()
-
-    if debug_mode:
-        cv2.namedWindow("img", cv2.WINDOW_NORMAL)
-        cv2.namedWindow("diff", cv2.WINDOW_NORMAL)
-        cv2.namedWindow("accum", cv2.WINDOW_NORMAL)
-        cv2.namedWindow("motion", cv2.WINDOW_NORMAL)
 
     global database
     global database_cursor
