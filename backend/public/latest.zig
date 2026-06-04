@@ -15,6 +15,7 @@ pub fn latest(comptime location: Location) tk.Route {
         .landwasser => database.LandwasserCapture,
         .landquart => database.LandquartCapture,
         .brusio => database.BrusioCapture,
+        .alpgr => database.AlpGrCapture,
         .livestream => database.LivestreamCapture,
     };
 
@@ -39,6 +40,7 @@ pub fn latest(comptime location: Location) tk.Route {
                     .landwasser => .landwasser,
                     .landquart => .landquart,
                     .brusio => .brusio,
+                    .alpgr => .alpgr,
                     .livestream => .livestream,
                 },
                 .time = Timestamp.parseSimpleTime(latest_entry) orelse return error.InvalidTimestamp,
@@ -46,7 +48,7 @@ pub fn latest(comptime location: Location) tk.Route {
                 .next = null,
                 .prev = if (previous_entry) |prev| prev[0..Timestamp.time_fmt.len].* else null,
                 .has_video = switch (location) {
-                    .filisur, .livestream => true,
+                    .filisur, .livestream, .alpgr => true,
                     .landwasser, .landquart, .brusio => false,
                 },
             };

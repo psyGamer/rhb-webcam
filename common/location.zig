@@ -5,6 +5,7 @@ pub const Location = enum {
     landwasser,
     landquart,
     brusio,
+    alpgr,
     livestream,
 
     pub const names: std.EnumArray(Location, []const u8) = .init(.{
@@ -12,6 +13,7 @@ pub const Location = enum {
         .landwasser = "Landwasser",
         .landquart = "Landquart",
         .brusio = "Brusio",
+        .alpgr = "Alp Grüm",
         .livestream = "Livestream",
     });
 };

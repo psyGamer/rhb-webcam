@@ -23,6 +23,7 @@ pub fn archive(comptime location: Location) []const tk.Route {
         .landwasser => @import("../database.zig").LandwasserCapture,
         .landquart => @import("../database.zig").LandquartCapture,
         .brusio => @import("../database.zig").BrusioCapture,
+        .alpgr => @import("../database.zig").AlpGrCapture,
         .livestream => @import("../database.zig").LivestreamCapture,
     };
 

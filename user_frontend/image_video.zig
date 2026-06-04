@@ -45,6 +45,7 @@ pub fn render(writer: *std.Io.Writer, opts: Options) !void {
         .landwasser => .landwasser,
         .landquart => .landquart,
         .brusio => .brusio,
+        .alpgr => .alpgr,
         .livestream => .livestream,
     };
 

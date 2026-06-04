@@ -243,6 +243,7 @@ pub fn capture(comptime location: Location) tk.Route {
         .landwasser => database.LandwasserCapture,
         .landquart => database.LandquartCapture,
         .brusio => database.BrusioCapture,
+        .alpgr => database.AlpGrCapture,
         .livestream => database.LivestreamCapture,
     };
 
@@ -273,7 +274,7 @@ pub fn capture(comptime location: Location) tk.Route {
             image_name[0..Timestamp.time_fmt.len].* = path[0..Timestamp.time_fmt.len].*;
             image_name[(image_name.len - extension_len)..][0..extension_len].* = switch (location) {
                 .filisur => ".png".*,
-                .livestream, .landwasser, .landquart, .brusio => ".jpg".*,
+                .livestream, .landwasser, .landquart, .brusio, .alpgr => ".jpg".*,
             };
 
             const image_path = try std.fs.path.join(ctx.allocator, &.{ env.key(switch (location) {
@@ -281,6 +282,7 @@ pub fn capture(comptime location: Location) tk.Route {
                 .landwasser => .WEBCAM_LANDWASSER_IMAGE,
                 .landquart => .WEBCAM_LANDQUART_IMAGE,
                 .brusio => .WEBCAM_BRUSIO_IMAGE,
+                .alpgr => .WEBCAM_ALPGR_IMAGE,
                 .livestream => .LIVESTREAM_IMAGE,
             }), capture_day, &image_name });
 
@@ -295,6 +297,7 @@ pub fn capture(comptime location: Location) tk.Route {
                     .landwasser => .landwasser,
                     .landquart => .landquart,
                     .brusio => .brusio,
+                    .alpgr => .alpgr,
                     .livestream => .livestream,
                 },
                 .time = capture_time,
@@ -303,7 +306,7 @@ pub fn capture(comptime location: Location) tk.Route {
                 .next = if (seq.next_file) |next| next[0..Timestamp.time_fmt.len].* else null,
                 .has_video = switch (location) {
                     .filisur => unreachable,
-                    .livestream => true,
+                    .livestream, .alpgr => true,
                     .landwasser, .landquart, .brusio => false,
                 },
             };

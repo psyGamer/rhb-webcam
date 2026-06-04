@@ -8,8 +8,11 @@ const Location = @import("common").Location;
 const sendFile = @import("static.zig").sendFile;
 
 pub fn handler(comptime location: Location, comptime content_type: enum { image, video, thumnail }) tk.Route {
-    if (location != .filisur and location != .livestream and content_type == .video) {
-        @compileError("Currently, only the Filisur and Livestream webcams provide video content");
+    if (content_type == .video) {
+        switch (location) {
+            .filisur, .livestream, .alpgr => {},
+            else => @compileError("Specified webcam does not provide videos"),
+        }
     }
 
     const H = struct {
@@ -23,7 +26,7 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
             content_name[(content_name.len - extension_len)..][0..extension_len].* = switch (content_type) {
                 .image => switch (location) {
                     .filisur => ".png".*,
-                    .livestream, .landwasser, .landquart, .brusio => ".jpg".*,
+                    .livestream, .landwasser, .landquart, .brusio, .alpgr => ".jpg".*,
                 },
                 .video => ".mp4".*,
                 .thumnail => ".jpg".*,
@@ -52,6 +55,11 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
                     .image => .WEBCAM_BRUSIO_IMAGE,
                     .thumnail => .WEBCAM_BRUSIO_THUMBNAIL,
                 },
+                .alpgr => switch (content_type) {
+                    .video => .WEBCAM_ALPGR_VIDEO,
+                    .image => .WEBCAM_ALPGR_IMAGE,
+                    .thumnail => .WEBCAM_ALPGR_THUMBNAIL,
+                },
                 .livestream => switch (content_type) {
                     .image => .LIVESTREAM_IMAGE,
                     .video => .LIVESTREAM_VIDEO,
@@ -71,7 +79,7 @@ pub fn handler(comptime location: Location, comptime content_type: enum { image,
             switch (content_type) {
                 .image => try sendFile(ctx, file, switch (location) {
                     .filisur => "image/png",
-                    .livestream, .landwasser, .landquart, .brusio => "image/jpeg",
+                    .livestream, .landwasser, .landquart, .brusio, .alpgr => "image/jpeg",
                 }),
                 .video => try sendFile(ctx, file, "video/mp4"),
                 .thumnail => try sendFile(ctx, file, "image/jpeg"),

@@ -81,6 +81,17 @@ const routes: []const tk.Route = &.{
         .get("/", latestView(.brusio)),
         .get("/:path", capture_view.capture(.brusio)),
     }),
+    .group("/" ++ @tagName(Location.alpgr), &.{
+        // Archive
+        .group("/archive", archiveView(.alpgr)),
+        // CDN
+        .get("/image/:path", cdnHandler(.alpgr, .image)),
+        .get("/video/:path", cdnHandler(.alpgr, .video)),
+        .get("/thumb/:path", cdnHandler(.alpgr, .thumnail)),
+        // View
+        .get("/", latestView(.alpgr)),
+        .get("/:path", capture_view.capture(.alpgr)),
+    }),
     .group("/" ++ @tagName(Location.livestream), &.{
         // Archive
         .group("/archive", archiveView(.livestream)),
@@ -138,7 +149,7 @@ pub const Env = dotenv.Env(enum {
     /// Port for the server to use
     PORT,
 
-    /// Preview images for videos from the Filisur webcam
+    /// Images for videos from the Filisur webcam
     WEBCAM_FILISUR_IMAGE,
     /// Images from the Landwasser webcam
     WEBCAM_LANDWASSER_IMAGE,
@@ -146,11 +157,15 @@ pub const Env = dotenv.Env(enum {
     WEBCAM_LANDQUART_IMAGE,
     /// Image sequences from the Brusio webcam
     WEBCAM_BRUSIO_IMAGE,
+    /// Images for videos from the Alp Grüm webcam
+    WEBCAM_ALPGR_IMAGE,
     /// Images from the Livestream webcam
     LIVESTREAM_IMAGE,
 
     /// Videos from the Filisur webcam
     WEBCAM_FILISUR_VIDEO,
+    /// Videos from the Alp Grüm webcam
+    WEBCAM_ALPGR_VIDEO,
     /// Videos from the Livestream webcam
     LIVESTREAM_VIDEO,
 
@@ -162,6 +177,8 @@ pub const Env = dotenv.Env(enum {
     WEBCAM_LANDQUART_THUMBNAIL,
     /// Thumbnail previews for the Brusio webcam
     WEBCAM_BRUSIO_THUMBNAIL,
+    /// Thumbnail previews for the Alp Grüm webcam
+    WEBCAM_ALPGR_THUMBNAIL,
     /// Thumbnail previews for the Livestream webcam
     LIVESTREAM_THUMBNAIL,
 

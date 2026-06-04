@@ -59,6 +59,11 @@ pub const BrusioCapture = struct {
 
     file: []const u8,
 };
+pub const AlpGrCapture = struct {
+    pub const sql_table_name = "alpgr_capture";
+
+    file: []const u8,
+};
 
 pub const Analytics = struct {
     pub const sql_table_name = "analytics";
@@ -174,7 +179,7 @@ pub fn load(pool: *Pool, allocator: std.mem.Allocator, env: *Env) !void {
         \\);
     , .{ Locomotive.sql_table_name, Train.sql_table_name }), .{});
 
-    inline for (&.{ FilisurCapture, LandwasserCapture, LandquartCapture, BrusioCapture }) |Capture| {
+    inline for (&.{ FilisurCapture, LandwasserCapture, LandquartCapture, BrusioCapture, AlpGrCapture }) |Capture| {
         try db.exec(std.fmt.comptimePrint(
             \\CREATE TABLE IF NOT EXISTS {s}(
             \\    file VARCHAR({d}) PRIMARY KEY
