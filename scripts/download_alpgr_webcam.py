@@ -37,7 +37,7 @@ frame_size = WIDTH * HEIGHT * 3
 
 snippet_duration = 10.0
 check_interval = 1.0
-minimum_recording_duration = 2.5
+minimum_recording_duration = 10.0
 
 crop_region = { "x1": 0, "x2": 700, "y1": 375, "y2": HEIGHT }
 last_image_write = None
@@ -118,7 +118,7 @@ class SnippetCollection:
 
             self.file_name = curr_date.strftime('%Y-%m-%d_%H-%M-%S')
             self.video_target_file = f"{video_target_dir}/{self.file_name}.mp4"
-            self.image_target_file = f"{image_target_dir}/{self.file_name}.png"
+            self.image_target_file = f"{image_target_dir}/{self.file_name}.jpg"
             self.thumbnail_target_file = f"{thumbnail_target_dir}/{self.file_name}.jpg"
             self.start_time = curr_time
             self.thumbnail_frame = frame.copy()
@@ -165,21 +165,60 @@ class SnippetCollection:
             return
 
         ## Create file list
-        filelist = f"flush_files.txt"
+        filelist = f"flush_files_alpgr.txt"
         with open(filelist, "w") as f:
             for segment in self.pending_flush:
                 f.write(f"file '{segment}'\n")
 
-        subprocess.Popen([
-            "ffmpeg", "-hide_banner", "-loglevel", "error",
-            "-fflags", "+genpts",
-            "-f", "concat", "-safe", "0",
-            "-i", filelist,
-            "-movflags", "+faststart", 
-            "-c:v", "copy", 
-            "-an",
-            self.video_target_file
-        ])
+        hwaccel = os.getenv("HARDWARE_ACCELERATION")
+        if hwaccel == "nvidia":
+            subprocess.Popen([
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-fflags", "+genpts",
+                "-hwaccel", "cuda",
+                "-hwaccel_output_format", "cuda",
+                "-f", "concat", "-safe", "0",
+                "-i", filelist,
+                "-movflags", "+faststart", 
+                "-c:v", "hevc_nvenc", 
+                "-cq", "41",
+                "-preset", "p7",
+                "-tier", "high",
+                "-bf", "4",
+                "-spatial_aq", "1",
+                "-temporal_aq", "1",
+                "-rc", "vbr",
+                "-multipass", "fullres",
+                "-tf_level", "4",
+                "-an",
+                self.video_target_file
+            ])
+        elif hwaccel == "intel":
+            subprocess.Popen([
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-fflags", "+genpts",
+                "-f", "concat", "-safe", "0",
+                "-i", filelist,
+                "-movflags", "+faststart", 
+                "-c:v", "hevc_qsv", 
+                "-global_quality", "40",
+                "-preset", "veryslow",
+                "-scenario", "videosurveillance",
+                "-bf", "8",
+                "-an",
+                self.video_target_file
+            ])
+        else:
+            subprocess.Popen([
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-fflags", "+genpts",
+                "-f", "concat", "-safe", "0",
+                "-i", filelist,
+                "-movflags", "+faststart", 
+                "-c:v", "copy", 
+                "-an",
+                self.video_target_file
+            ])
 
         cv2.imwrite(self.image_target_file, self.thumbnail_frame, [
             cv2.IMWRITE_JPEG_QUALITY, 50,
@@ -339,28 +378,31 @@ def run_capture(queue: DataQueue):
             print(f"== DEBUG '{file}' [{file_idx}/{len(debug_files)}]")
             file_idx += 1
 
-            queue.put(file)
+            try:
+                queue.put(file)
 
-            container = av.open(file)
-            video_stream = container.streams.video[0]
+                container = av.open(file)
+                video_stream = container.streams.video[0]
 
-            file_time = None
+                file_time = None
 
-            for frame in container.decode(video_stream):
-                if file_time is None:
-                    file_time = datetime.strptime(os.path.basename(file), "%Y-%m-%d_%H-%M-%S.mts").timestamp() - frame.time
-                curr_time = file_time + frame.time
+                for frame in container.decode(video_stream):
+                    if file_time is None:
+                        file_time = datetime.strptime(os.path.basename(file), "%Y-%m-%d_%H-%M-%S.mts").timestamp() - frame.time
+                    curr_time = file_time + frame.time
 
-                if last_time is None:
-                    last_time = curr_time
+                    if last_time is None:
+                        last_time = curr_time
 
-                if curr_time - last_time >= check_interval:
-                    last_time = curr_time
-                
-                curr_image = frame.to_ndarray(format="bgr24")
-                cv2.putText(curr_image, "DEBUG REPLAY", (30, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-                
-                queue.put((curr_image, curr_time))
+                    if curr_time - last_time >= check_interval:
+                        last_time = curr_time
+                    
+                    curr_image = frame.to_ndarray(format="bgr24")
+                    cv2.putText(curr_image, "DEBUG REPLAY", (30, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                    
+                    queue.put((curr_image, curr_time))
+            except Exception as e:
+                print(f"Got bad debug snippet: '{e}'")
 
         return
 
@@ -430,21 +472,24 @@ def run_capture(queue: DataQueue):
     try:
         while True:
             ## Capture current
-            if select.select([capture.stdout], [], [], 30):
-                raw = capture.stdout.read(frame_size)
+            ready_stdout, _, _ = select.select([capture.stdout], [], [], 10)
+            if len(ready_stdout) > 0:
+                raw = ready_stdout[0].read(frame_size)
+
                 if len(raw) != frame_size:
                     fail_count += 1
+
+                    if fail_count >= 100:
+                        print("Capture failed due to unknown reasons")
+                        capture.kill()
+                        if writer and output_video:
+                            writer.release()
+                            writer.process.wait()
+                        return
+
                     continue
                 else:
                     fail_count = max(0, fail_count)
-
-                if fail_count >= 100:
-                    print("Capture failed due to unknown reasons")
-                    capture.kill()
-                    if writer and output_video:
-                        writer.release()
-                        writer.process.wait()
-                    return
 
                 curr_image = np.frombuffer(raw, np.uint8).reshape((HEIGHT, WIDTH, 3))
             else:
@@ -469,7 +514,7 @@ def run_capture(queue: DataQueue):
                 global last_image_write
                 if output_video and (last_image_write is None or last_image_write != hourly_now):
                     last_image_write = hourly_now
-                    cv2.imwrite(f"{os.getenv("WEBCAM_ALPGR_SNAPSHOT")}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png", curr_image)
+                    cv2.imwrite(f"{os.getenv("WEBCAM_ALPGR_SNAPSHOT")}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.jpg", curr_image)
 
                 target_dir = f"{os.getenv("WEBCAM_ALPGR_SNIPPET")}/{now.strftime('%Y-%m-%d')}"
                 if (not os.path.exists(target_dir)):
@@ -481,7 +526,7 @@ def run_capture(queue: DataQueue):
                 while os.path.exists(filepath):
                     dup_idx += 1
                     filepath = f"{basefile}_{dup_idx}.mts"
-                print(f"-> {filepath}")
+
                 writer = FFmpegVideoWriter(filepath, WIDTH, HEIGHT, time.time())
                 
                 queue.put(filepath)
