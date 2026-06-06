@@ -1,8 +1,0 @@
-[Unit]
-Description=RhB Archive - Daily
-Wants=rhb-archive-day.service rhb-fetch-locomotive-allocations.service
-After=rhb-archive-day.service rhb-fetch-locomotive-allocations.service
-
-[Service]
-Type=oneshot
-ExecStart=/bin/true

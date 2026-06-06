@@ -15,9 +15,8 @@ sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-miralago.service   | sed -e "
 
 sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-archive-day.service                  | sed -e "s\\##USER##\\$USER\\g" | sudo tee /etc/systemd/system/rhb-archive-day.service
 sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-fetch-locomotive-allocations.service | sed -e "s\\##USER##\\$USER\\g" | sudo tee /etc/systemd/system/rhb-fetch-locomotive-allocations.service
-
-sudo cp systemd/rhb-daily.service /etc/systemd/system/rhb-daily.service
-sudo cp systemd/rhb-daily.timer /etc/systemd/system/rhb-daily.timer
+sudo cp systemd/rhb-daily.timer /etc/systemd/system/rhb-archive-day.timer
+sudo cp systemd/rhb-daily.timer /etc/systemd/system/rhb-fetch-locomotive-allocations.timer
 
 sudo systemctl daemon-reload
 
@@ -29,7 +28,8 @@ sudo systemctl enable rhb-livestream
 sudo systemctl enable rhb-ilanz
 sudo systemctl enable rhb-miralago
 
-sudo systemctl enable rhb-daily.timer
+sudo systemctl enable rhb-archive-day.timer
+sudo systemctl enable rhb-fetch-locomotive-allocations.timer
 
 sudo systemctl restart rhb-filisur
 sudo systemctl restart rhb-landquart
