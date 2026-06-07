@@ -22,6 +22,7 @@ self.addEventListener('push', event => {
         "landwasser": "Landwasser Webcam",
         "landquart": "Landquart Webcam",
         "brusio": "Brusio Webcam",
+        "alpgr": "Alp Grüm Webcam",
         "livestream": "RhB Livestream"
     };
 
