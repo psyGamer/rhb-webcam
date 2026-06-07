@@ -15,8 +15,8 @@ sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-miralago.service   | sed -e "
 
 sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-archive-day.service                  | sed -e "s\\##USER##\\$USER\\g" | sudo tee /etc/systemd/system/rhb-archive-day.service
 sed -e "s\\##REPO_DIR##\\$REPO_DIR\\g" systemd/rhb-fetch-locomotive-allocations.service | sed -e "s\\##USER##\\$USER\\g" | sudo tee /etc/systemd/system/rhb-fetch-locomotive-allocations.service
-sudo cp systemd/rhb-daily.timer /etc/systemd/system/rhb-archive-day.timer
-sudo cp systemd/rhb-daily.timer /etc/systemd/system/rhb-fetch-locomotive-allocations.timer
+sudo cp systemd/rhb-archive-day.timer /etc/systemd/system/rhb-archive-day.timer
+sudo cp systemd/rhb-fetch-locomotive-allocations.timer /etc/systemd/system/rhb-fetch-locomotive-allocations.timer
 
 sudo systemctl daemon-reload
 
