@@ -49,6 +49,7 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
         \\                </div>
         \\            </details>
         \\            <a class="boxed-button" href="/{s}/archive">Archiv</a>
@@ -83,6 +84,7 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
         \\                    <a href="/{s}">{s}</a>
+        \\                    <a href="/{s}">{s}</a>
         \\                </div>
         \\            </details>
         \\            <span class="notifications">
@@ -101,6 +103,8 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         Location.names.get(location),
         @tagName(Location.filisur),
         Location.names.get(.filisur),
+        @tagName(Location.landwasser),
+        Location.names.get(.landwasser),
         @tagName(Location.landquart),
         Location.names.get(.landquart),
         @tagName(Location.brusio),
@@ -117,6 +121,8 @@ inline fn render(writer: *std.Io.Writer, location: Location, page_render: anytyp
         Location.names.get(location),
         @tagName(Location.filisur),
         Location.names.get(.filisur),
+        @tagName(Location.landwasser),
+        Location.names.get(.landwasser),
         @tagName(Location.landquart),
         Location.names.get(.landquart),
         @tagName(Location.brusio),
