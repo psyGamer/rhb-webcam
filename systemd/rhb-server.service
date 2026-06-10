@@ -11,5 +11,5 @@ ExecStart=##REPO_DIR##/zig-out/filisur-archive
 Restart=on-failure
 
 [Install]
-WantedBy=nginx.server
+WantedBy=nginx.service
 

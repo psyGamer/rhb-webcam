@@ -20,6 +20,9 @@ sudo cp systemd/rhb-fetch-locomotive-allocations.timer /etc/systemd/system/rhb-f
 
 sudo systemctl daemon-reload
 
+# Enable services
+sudo systemctl enable rhb-server
+
 sudo systemctl enable rhb-filisur
 sudo systemctl enable rhb-landquart
 sudo systemctl enable rhb-brusio
@@ -31,6 +34,9 @@ sudo systemctl enable rhb-miralago
 sudo systemctl enable rhb-archive-day.timer
 sudo systemctl enable rhb-fetch-locomotive-allocations.timer
 
+# Restart services
+sudo systemctl restart rhb-server
+
 sudo systemctl restart rhb-filisur
 sudo systemctl restart rhb-landquart
 sudo systemctl restart rhb-brusio
@@ -38,3 +44,6 @@ sudo systemctl restart rhb-alpgr
 sudo systemctl restart rhb-livestream
 sudo systemctl restart rhb-ilanz
 sudo systemctl restart rhb-miralago
+
+sudo systemctl restart rhb-archive-day.timer
+sudo systemctl restart rhb-fetch-locomotive-allocations.timer
