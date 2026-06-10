@@ -474,10 +474,39 @@ class FFmpegVideoWriter:
         if not output_video:
             return
 
+        hwaccel = os.getenv("HARDWARE_ACCELERATION")
+        if hwaccel == "nvidia":
+            init_args = [
+                "-hwaccel", "cuda", "-hwaccel_output_format", "cuda",
+            ]
+            codec_args = [
+                "-c:v", "h264_nvenc",
+                "-preset", "fast",
+                "-rc", "vbr_hq",
+                "-cq", "22",
+            ]
+        elif hwaccel == "intel":
+            init_args = [
+                "-hwaccel", "qsv", "-hwaccel_output_format", "qsv", "-extra_hw_frames", "16",
+            ]
+            codec_args = [
+                "-c:v", "h264_qsv",
+                "-preset", "fast",
+                "-global_quality", "22",
+            ]
+        else:
+            init_args = []
+            codec_args = [
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-crf", "22",
+                "-tune", "zerolatency",
+            ]
+
         self.process = subprocess.Popen([
-            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "ffmpeg", "-hide_banner", "-loglevel", "error", *init_args,
             "-f", "rawvideo", "-r", str(fps), "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-i", "pipe:0",
-            "-f", "mpegts", "-c:v", "h264", "-crf", "22", "-pix_fmt", "yuv420p", filepath
+            "-f", "mpegts", *codec_args, "-pix_fmt", "yuv420p", filepath,
         ], stdin=subprocess.PIPE)
 
     def write(self, image: np.typing.NDArray[np.uint8]):
@@ -729,6 +758,7 @@ def run_capture(queue: DataQueue):
                 global last_image_write
                 if output_video and (last_image_write is None or last_image_write != hourly_now):
                     last_image_write = hourly_now
+                    os.makedirs(os.getenv("WEBCAM_FILISUR_SNAPSHOT"), exist_ok=True)
                     cv2.imwrite(f"{os.getenv("WEBCAM_FILISUR_SNAPSHOT")}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.png", curr_image)
 
                 target_dir = f"{os.getenv("WEBCAM_FILISUR_SNIPPET")}/{now.strftime('%Y-%m-%d')}"

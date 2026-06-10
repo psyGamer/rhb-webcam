@@ -36,6 +36,7 @@ SCALE_FACTOR = 1.0 / 2.0
 frame_size = WIDTH * HEIGHT * 3
 
 snippet_duration = 10.0
+snippet_clear_interval = 3600.0
 check_interval = 1.0
 minimum_recording_duration = 10.0
 
@@ -52,11 +53,39 @@ class FFmpegVideoWriter:
         if not output_video:
             return
 
+        hwaccel = os.getenv("HARDWARE_ACCELERATION")
+        if hwaccel == "nvidia":
+            init_args = [
+                "-hwaccel", "cuda", "-hwaccel_output_format", "cuda",
+            ]
+            codec_args = [
+                "-c:v", "h264_nvenc",
+                "-preset", "fast",
+                "-rc", "vbr_hq",
+                "-cq", "24",
+            ]
+        elif hwaccel == "intel":
+            init_args = [
+                "-hwaccel", "qsv", "-hwaccel_output_format", "qsv", "-extra_hw_frames", "16",
+            ]
+            codec_args = [
+                "-c:v", "h264_qsv",
+                "-preset", "fast",
+                "-global_quality", "24",
+            ]
+        else:
+            init_args = []
+            codec_args = [
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-crf", "24",
+                "-tune", "zerolatency",
+            ]
+
         self.process = subprocess.Popen([
-            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "ffmpeg", "-hide_banner", "-loglevel", "error", *init_args,
             "-f", "rawvideo", "-use_wallclock_as_timestamps", "1", "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-i", "pipe:0",
-            "-f", "mpegts", "-c:v", "libx264", "-crf", "22", "-pix_fmt", "yuv420p", filepath,
-            "-g", str(int(snippet_duration * 2)), "-keyint_min", str(int(snippet_duration * 2)), "-sc_threshold", "0",
+            "-f", "mpegts", *codec_args, "-pix_fmt", "yuv420p", filepath,
         ], stdin=subprocess.PIPE)
 
     def write(self, image: np.typing.NDArray[np.uint8]):
@@ -170,55 +199,18 @@ class SnippetCollection:
             for segment in self.pending_flush:
                 f.write(f"file '{segment}'\n")
 
-        hwaccel = os.getenv("HARDWARE_ACCELERATION")
-        if hwaccel == "nvidia":
-            subprocess.Popen([
-                "ffmpeg", "-hide_banner", "-loglevel", "error",
-                "-fflags", "+genpts",
-                "-hwaccel", "cuda",
-                "-hwaccel_output_format", "cuda",
-                "-f", "concat", "-safe", "0",
-                "-i", filelist,
-                "-movflags", "+faststart", 
-                "-c:v", "hevc_nvenc", 
-                "-cq", "41",
-                "-preset", "p7",
-                "-tier", "high",
-                "-bf", "4",
-                "-spatial_aq", "1",
-                "-temporal_aq", "1",
-                "-rc", "vbr",
-                "-multipass", "fullres",
-                "-tf_level", "4",
-                "-an",
-                self.video_target_file
-            ])
-        elif hwaccel == "intel":
-            subprocess.Popen([
-                "ffmpeg", "-hide_banner", "-loglevel", "error",
-                "-fflags", "+genpts",
-                "-f", "concat", "-safe", "0",
-                "-i", filelist,
-                "-movflags", "+faststart", 
-                "-c:v", "hevc_qsv", 
-                "-global_quality", "40",
-                "-preset", "veryslow",
-                "-scenario", "videosurveillance",
-                "-bf", "8",
-                "-an",
-                self.video_target_file
-            ])
-        else:
-            subprocess.Popen([
-                "ffmpeg", "-hide_banner", "-loglevel", "error",
-                "-fflags", "+genpts",
-                "-f", "concat", "-safe", "0",
-                "-i", filelist,
-                "-movflags", "+faststart", 
-                "-c:v", "copy", 
-                "-an",
-                self.video_target_file
-            ])
+        p = subprocess.Popen([
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-fflags", "+genpts",
+            "-f", "concat", "-safe", "0",
+            "-i", filelist,
+            "-movflags", "+faststart", 
+            "-c:v", "libx265",
+            "-preset", "ultrafast",
+            "-crf", "25",
+            "-an",
+            self.video_target_file
+        ])
 
         cv2.imwrite(self.image_target_file, self.thumbnail_frame, [
             cv2.IMWRITE_JPEG_QUALITY, 50,
@@ -445,10 +437,6 @@ def run_capture(queue: DataQueue):
 
     header_background: Image = Image.new("LA", (WIDTH, textbox_meta.height + font_size), color=(0,48))
     
-    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
-        "headers=Authorization: Basic dmlld2VyOnRlc3Q=\r\n|user_agent;RhB Archive (rhb.webcam@gmail.com) If this automated capture is causing issues, please contact me!"
-    )
-
     capture = subprocess.Popen([
         "ffmpeg", "-hide_banner", "-loglevel", "error",
 
@@ -464,6 +452,8 @@ def run_capture(queue: DataQueue):
     ], stdout=subprocess.PIPE)
 
     last_time = None
+    last_date = None
+    next_snippet_clear = time.time()
     writer = None
 
     fail_count = 0
@@ -504,6 +494,10 @@ def run_capture(queue: DataQueue):
             now = datetime.now(ZoneInfo("Europe/Zurich"))
             now_time = time.time()
 
+            curr_date = now.strftime('%Y-%m-%d')
+            if last_date is None:
+                last_date = curr_date
+
             if writer is None or (now_time - writer.start_time) >= snippet_duration:
                 if writer:
                     writer.release()
@@ -514,9 +508,10 @@ def run_capture(queue: DataQueue):
                 global last_image_write
                 if output_video and (last_image_write is None or last_image_write != hourly_now):
                     last_image_write = hourly_now
+                    os.makedirs(os.getenv("WEBCAM_ALPGR_SNAPSHOT"), exist_ok=True)
                     cv2.imwrite(f"{os.getenv("WEBCAM_ALPGR_SNAPSHOT")}/{now.strftime('%Y-%m-%d_%H-%M-%S')}.jpg", curr_image)
 
-                target_dir = f"{os.getenv("WEBCAM_ALPGR_SNIPPET")}/{now.strftime('%Y-%m-%d')}"
+                target_dir = f"{os.getenv("WEBCAM_ALPGR_SNIPPET")}/{curr_date}"
                 if (not os.path.exists(target_dir)):
                     os.makedirs(target_dir, exist_ok=True)
 
@@ -530,6 +525,17 @@ def run_capture(queue: DataQueue):
                 writer = FFmpegVideoWriter(filepath, WIDTH, HEIGHT, time.time())
                 
                 queue.put(filepath)
+
+            if curr_date != last_date:
+                next_snippet_clear = time.time() + snippet_clear_interval
+
+                clear_thread = Thread(target=cleanup_snippets, args=[last_date, 0])
+                clear_thread.start()
+            elif now_time >= next_snippet_clear:
+                next_snippet_clear = time.time() + snippet_clear_interval
+
+                clear_thread = Thread(target=cleanup_snippets, args=[curr_date, snippet_clear_interval])
+                clear_thread.start()
 
             curr_time1 = f"{now.day:02d}. {months[now.month]} {now.year}"
             curr_time2 = f"{now:%H:%M:%S} {now.tzname():>4}"
@@ -579,6 +585,76 @@ def capture_worker(queue: DataQueue):
     else:
         run_capture(queue)
         queue.put("TERMINATE")
+
+def cleanup_snippets(day, max_age):
+    target_dir = f"{os.getenv("WEBCAM_ALPGR_SNIPPET")}/{day}"
+
+    filelist = f"flush_files_alpgr2.txt"
+    files = []
+
+    with open(filelist, "w") as f:
+        for file in sorted(os.listdir(target_dir)):
+            stat = os.stat(f"{target_dir}/{file}")
+            if time.time() - stat.st_mtime > max_age:
+                print(f"Removing old snippet {file} ({time.time() - stat.st_mtime}s old)")
+                if stat.st_size > 0:
+                    f.write(f"file '{target_dir}/{file}'\n")
+                files.append(file)
+
+    if len(files) == 0:
+        return
+
+    hourly_dir = f"{os.getenv("WEBCAM_ALPGR_HOURLY")}/{day}"
+    hourly_file = f"{hourly_dir}/{files[0][:-4]}.mp4"
+
+    os.makedirs(hourly_dir, exist_ok=True)
+
+    hwaccel = os.getenv("HARDWARE_ACCELERATION")
+    if hwaccel == "nvidia":
+        p = subprocess.Popen([
+            "ffmpeg", "-hide_banner",
+            "-fflags", "+genpts",
+            "-hwaccel", "cuda", "-hwaccel_output_format", "cuda",
+            "-f", "concat", "-safe", "0",
+            "-i", filelist,
+            "-movflags", "+faststart",
+            "-vf", "scale_cuda=format=nv12",
+            "-c:v", "h264_nvenc",
+            "-cq", "40",
+            "-preset", "p7",
+            "-bf", "4",
+            "-tf_level", "4",
+            "-an",
+            hourly_file
+        ])
+    elif hwaccel == "intel":
+        p = subprocess.Popen([
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-fflags", "+genpts",
+            "-hwaccel", "qsv", "-hwaccel_output_format", "qsv", "-extra_hw_frames", "16",
+            "-f", "concat", "-safe", "0",
+            "-i", filelist,
+            "-movflags", "+faststart", 
+            "-vf", "vpp_qsv=format=nv12",
+            "-c:v", "h264_qsv",
+            "-global_quality", "38",
+            "-preset", "veryslow",
+            "-scenario", "videosurveillance",
+            "-bf", "8",
+            "-an",
+            hourly_file
+        ])
+    else:
+        raise Exception("Not implemented")
+
+    print(f"Starting hourly archive with {len(files)} snippets...")
+    p.wait()
+    print(f"Finished hourly archive for '{files[0][:-4]}.mp4'")
+
+    os.makedirs(f"/media/Storage/RhB_Webcam/AlpGr/Deleted/{day}")
+    for file in files:
+        os.delete(f"{target_dir}/{file}")
+
 
 def main():
     load_dotenv()

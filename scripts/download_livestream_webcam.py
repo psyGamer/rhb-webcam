@@ -156,8 +156,7 @@ class SnippetCollection:
             subprocess.Popen([
                 "ffmpeg", "-hide_banner", "-loglevel", "error",
                 "-fflags", "+genpts",
-                "-hwaccel", "cuda",
-                "-hwaccel_output_format", "cuda",
+                "-hwaccel", "cuda", "-hwaccel_output_format", "cuda",
                 "-f", "concat", "-safe", "0",
                 "-i", filelist,
                 "-movflags", "+faststart", 
@@ -179,6 +178,7 @@ class SnippetCollection:
             subprocess.Popen([
                 "ffmpeg", "-hide_banner", "-loglevel", "error",
                 "-fflags", "+genpts",
+                "-hwaccel", "qsv", "-hwaccel_output_format", "qsv", "-extra_hw_frames", "16",
                 "-f", "concat", "-safe", "0",
                 "-i", filelist,
                 "-movflags", "+faststart", 
@@ -456,9 +456,6 @@ locations = [
 ]
 
 def run_analysis(capture: Process):
-    analysis_interval = int(1.0 * FPS)
-    next_analysis = analysis_interval
-
     ocr_interval = 5
     next_ocr = ocr_interval
 
@@ -496,19 +493,9 @@ def run_analysis(capture: Process):
             if len(raw) != frame_size:
                 continue
 
-            total_frames += 1
-
-            next_analysis -= 1
-            if next_analysis > 0:
-                if not preview_mode:
-                    continue
+            total_frames += int(1*FPS)
 
             curr_image = np.frombuffer(raw, np.uint8).reshape((HEIGHT, WIDTH, 3))
-
-            if next_analysis > 0:
-                cv2.imshow("Normal", curr_image)
-                continue
-
             curr_gray = cv2.resize(cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY), None, fx=SCALE_FACTOR, fy=SCALE_FACTOR)
             # curr_gray = cv2.equalizeHist(curr_gray)
             # curr_gray = cv2.GaussianBlur(curr_gray, (5, 5), 0)
@@ -516,8 +503,6 @@ def run_analysis(capture: Process):
             if prev_gray is None:
                 prev_gray = curr_gray
                 continue
-
-            next_analysis = analysis_interval
 
             # AD detection
             time_img = curr_image[time_roi[1]:time_roi[1]+time_roi[3], time_roi[0]:time_roi[0]+time_roi[2]]
@@ -643,6 +628,8 @@ def run_analysis(capture: Process):
                     snippet_collection.video_target_file = f"{video_target_dir}/{snippet_collection.file_name}.mp4"
                     snippet_collection.image_target_file = f"{image_target_dir}/{snippet_collection.file_name}.jpg"
                     snippet_collection.thumbnail_target_file = f"{thumbnail_target_dir}/{snippet_collection.file_name}.jpg"
+                    if snippet_collection.location is None or curr_location is not None:
+                        snippet_collection.location = curr_location
                 elif snippet_collection.thumbnail_timeout > 0:
                     snippet_collection.thumbnail_timeout -= 1
 
@@ -750,10 +737,20 @@ def main():
 
     capture = subprocess.Popen([
         "ffmpeg", "-hide_banner", "-loglevel", "error",
-
         "-f", "mpegts",
+        "-skip_frame", "nokey",
         "-i", "pipe:0",
         "-an",
+
+        # Try to prefer fresh frames and avoid duplicating old frames.
+        # -vsync 0 prevents ffmpeg from duplicating frames to match output rate.
+        # -fflags nobuffer and low_delay flags reduce internal buffering so
+        # ffmpeg presents the newest frames it receives.
+        "-fflags", "nobuffer",
+        "-flags", "+low_delay",
+        "-probesize", "32",
+        "-analyzeduration", "0",
+        "-vsync", "0",
 
         "-f", "rawvideo",
         "-vcodec", "rawvideo",
