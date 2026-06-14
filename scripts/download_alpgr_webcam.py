@@ -522,20 +522,23 @@ def run_capture(queue: DataQueue):
                     dup_idx += 1
                     filepath = f"{basefile}_{dup_idx}.mts"
 
-                writer = FFmpegVideoWriter(filepath, WIDTH, HEIGHT, time.time())
+                writer = FFmpegVideoWriter(filepath, WIDTH, HEIGHT, now_time)
                 
                 queue.put(filepath)
 
-            if curr_date != last_date:
-                next_snippet_clear = time.time() + snippet_clear_interval
+                if curr_date != last_date:
+                    next_snippet_clear = now_time + snippet_clear_interval
 
-                clear_thread = Thread(target=cleanup_snippets, args=[last_date, 0])
-                clear_thread.start()
-            elif now_time >= next_snippet_clear:
-                next_snippet_clear = time.time() + snippet_clear_interval
+                    clear_thread = Thread(target=cleanup_snippets, args=[last_date, 0])
+                    clear_thread.start()
 
-                clear_thread = Thread(target=cleanup_snippets, args=[curr_date, snippet_clear_interval])
-                clear_thread.start()
+                    last_date = curr_date
+                elif now_time >= next_snippet_clear and (now.hour < 23 or now.minute < 30): # Don't trigger in last 30min since the date change will handle it
+                    next_snippet_clear = now_time + snippet_clear_interval
+
+                    clear_thread = Thread(target=cleanup_snippets, args=[curr_date, snippet_clear_interval])
+                    clear_thread.start()
+
 
             curr_time1 = f"{now.day:02d}. {months[now.month]} {now.year}"
             curr_time2 = f"{now:%H:%M:%S} {now.tzname():>4}"
@@ -597,8 +600,11 @@ def cleanup_snippets(day, max_age):
             stat = os.stat(f"{target_dir}/{file}")
             if time.time() - stat.st_mtime > max_age:
                 print(f"Removing old snippet {file} ({time.time() - stat.st_mtime}s old)")
-                if stat.st_size > 0:
-                    f.write(f"file '{target_dir}/{file}'\n")
+                if stat.st_size == 0:
+                    os.remove(f"{target_dir}/{file}")
+                    continue
+
+                f.write(f"file '{target_dir}/{file}'\n")
                 files.append(file)
 
     if len(files) == 0:
@@ -612,7 +618,7 @@ def cleanup_snippets(day, max_age):
     hwaccel = os.getenv("HARDWARE_ACCELERATION")
     if hwaccel == "nvidia":
         p = subprocess.Popen([
-            "ffmpeg", "-hide_banner",
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
             "-fflags", "+genpts",
             "-hwaccel", "cuda", "-hwaccel_output_format", "cuda",
             "-f", "concat", "-safe", "0",
@@ -620,7 +626,7 @@ def cleanup_snippets(day, max_age):
             "-movflags", "+faststart",
             "-vf", "scale_cuda=format=nv12",
             "-c:v", "h264_nvenc",
-            "-cq", "40",
+            "-cq", "42",
             "-preset", "p7",
             "-bf", "4",
             "-tf_level", "4",
@@ -637,7 +643,7 @@ def cleanup_snippets(day, max_age):
             "-movflags", "+faststart", 
             "-vf", "vpp_qsv=format=nv12",
             "-c:v", "h264_qsv",
-            "-global_quality", "38",
+            "-global_quality", "42",
             "-preset", "veryslow",
             "-scenario", "videosurveillance",
             "-bf", "8",
@@ -651,9 +657,8 @@ def cleanup_snippets(day, max_age):
     p.wait()
     print(f"Finished hourly archive for '{files[0][:-4]}.mp4'")
 
-    os.makedirs(f"/media/Storage/RhB_Webcam/AlpGr/Deleted/{day}")
     for file in files:
-        os.delete(f"{target_dir}/{file}")
+        os.remove(f"{target_dir}/{file}")
 
 
 def main():
