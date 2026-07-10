@@ -55,7 +55,7 @@ if [ "$HARDWARE_ACCELERATION" == "intel" ]; then
     if [ -f ${ARCHIVE_FILE_FILISUR:?} ]; then
         ffmpeg -fflags +genpts -hwaccel vaapi -hwaccel_output_format vaapi \
             -f concat -safe 0 -i ${ARCHIVE_FILE_FILISUR:?} \
-            -movflags +faststart -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv -global_quality 42 -look_ahead 1 -preset veryfast -scenario videosurveillance ${WEBCAM_FILISUR_DAILY:?}/$1.mp4
+            -movflags +faststart -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv -global_quality 42 -look_ahead 1 -preset veryslow -scenario videosurveillance -bf 8 -an ${WEBCAM_FILISUR_DAILY:?}/$1.mp4
     fi
 
     if [ -f ${ARCHIVE_FILE_ALPGR:?} ]; then
@@ -79,7 +79,7 @@ elif [ "$HARDWARE_ACCELERATION" == "nvidia" ]; then
     if [ -f ${ARCHIVE_FILE_FILISUR:?} ]; then
         ffmpeg -fflags +genpts -hwaccel cuda -hwaccel_output_format cuda \
             -f concat -safe 0 -i ${ARCHIVE_FILE_FILISUR:?} \
-            -movflags +faststart -vf 'scale_cuda=format=nv12' -c:v h264_nvenc -cq 30 -preset p1 -tune hq ${WEBCAM_FILISUR_DAILY:?}/$1.mp4
+            -movflags +faststart -vf 'scale_cuda=format=nv12' -c:v h264_nvenc -cq 42 -bf 4 -preset p1 -tune hq ${WEBCAM_FILISUR_DAILY:?}/$1.mp4
     fi
 
     if [ -f ${ARCHIVE_FILE_ALPGR:?} ]; then
