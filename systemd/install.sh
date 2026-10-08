@@ -21,6 +21,7 @@ sudo cp systemd/rhb-fetch-locomotive-allocations.timer /etc/systemd/system/rhb-f
 sudo systemctl daemon-reload
 
 # Enable services
+sudo systemctl enable nginx
 sudo systemctl enable rhb-server
 
 sudo systemctl enable rhb-filisur
@@ -35,6 +36,7 @@ sudo systemctl enable rhb-archive-day.timer
 sudo systemctl enable rhb-fetch-locomotive-allocations.timer
 
 # Restart services
+sudo systemctl restart nginx
 sudo systemctl restart rhb-server
 
 sudo systemctl restart rhb-filisur

@@ -569,6 +569,7 @@ def run_capture(queue: DataQueue):
                 last_time = now_time
                 queue.put((curr_image, now_time))
     except:
+        capture.kill()
         if writer and output_video:
             writer.release()
             writer.process.wait()
