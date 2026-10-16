@@ -1,17 +1,18 @@
 # Common
+requests
 python-dotenv
 
-# download_webcam.py
+# download_x_webcam.py
 opencv-python==4.12.0.88
 opencv-contrib-python==4.12.0.88
 pillow
 
-# download_landquart_webcam.py
-requests
-
 # download_livestream_webcam.py
 pytesseract
 imagehash
+
+# download_brusio_webcam.py
+watchdog
 
 # parse_locomotive_allocations.py
 pdfplumber
